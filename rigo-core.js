@@ -5,7 +5,7 @@
 const NS='http://www.w3.org/2000/svg';
 const STROKES=new Set(['一','丨','丶','丿','乙','亅','乚','㇏','㇒','㇇','㇉','乛']);
 const VC=[54.5,51]; // ほどいた全体を寄せる中心
-let D=null, cache={}, compIndex={}, leafSet={}, soloSet={}, SYNTH={}; // soloSet: 範囲内でほどけない字
+let D=null, cache={}, compIndex={}, leafSet={}, soloSet={}, partCnt={}, SYNTH={}; // partCnt[ch][e]: ch の中の部品 e の画数 // soloSet: 範囲内でほどけない字
 
 // ---------- データの読み込み（data/：meta + 3 層。src/split_data.js で生成） ----------
 // 層 0 = 常用とその部品、1 = 人名用、2 = その他。層 k の字が使う部品の字形は必ず層 k 以下に入っている。
@@ -82,7 +82,7 @@ function synthAlts(){ SYNTH={};
 function altOf(n,s){ if(n.e&&has(n.e)){ if(!D.tree[n.e])return null; const ss=strokes(tree(n.e)); if(ss.length===s.length) return n.ap?n.ap.map(j=>ss[j]):ss; } const a=SYNTH[n.e+'/'+s.length]; return a||null; }
 let SCOPE='joyo'; const inScope=(ch,sc)=>{ const g=(D.grade||{})[ch]||0; return sc==='all'?true: sc==='jinmei'?(g>0&&g<=10): (g>0&&g<=8); };
 function scopeChars(sc){ return D.order.filter(c=>inScope(c,sc||SCOPE)); }
-function buildIndex(sc){ SCOPE=sc||SCOPE; if(!Object.keys(SYNTH).length)synthAlts(); compIndex={}; leafSet={}; soloSet={}; scopeChars(SCOPE).forEach(ch=>{const ps=parts(ch); if(!ps){ if(D.tree[ch])soloSet[ch]=1; return; } const seen=new Set(); ps.forEach(p=>{ if(p.e&&p.alt&&!seen.has(p.e)){seen.add(p.e);(compIndex[p.e]=compIndex[p.e]||[]).push(ch);(leafSet[ch]=leafSet[ch]||[]).push(p.e);} }); }); }
+function buildIndex(sc){ SCOPE=sc||SCOPE; if(!Object.keys(SYNTH).length)synthAlts(); compIndex={}; leafSet={}; soloSet={}; partCnt={}; scopeChars(SCOPE).forEach(ch=>{const ps=parts(ch); if(!ps){ if(D.tree[ch])soloSet[ch]=1; return; } const seen=new Set(); ps.forEach(p=>{ if(p.e&&p.alt&&!seen.has(p.e)){seen.add(p.e); (partCnt[ch]=partCnt[ch]||{})[p.e]=p.s.length;(compIndex[p.e]=compIndex[p.e]||[]).push(ch);(leafSet[ch]=leafSet[ch]||[]).push(p.e);} }); }); }
 
 // ---------- 画の対応づけ ----------
 function normalize(polys){ const b=bbOf(polys); const k=1/Math.max(b[2]-b[0],b[3]-b[1],1e-6); return polys.map(s=>s.map(q=>[(q[0]-b[0])*k,(q[1]-b[1])*k])); }
@@ -99,7 +99,10 @@ function matchStrokes(A,B){ const a=normalize(A),b=normalize(B); const n=a.lengt
 let WHOLE=true; function setWhole(v){ WHOLE=!!v; }
 function partsOf(ch){ return leafSet[ch]||(WHOLE&&soloSet[ch]?[ch]:[]); }
 function wholeTarget(e,ch){ return WHOLE&&e!==ch&&has(e)&&inScope(e,SCOPE)&&!!D.tree[e]; }
-function neighborsOf(ch){ const m={}; partsOf(ch).forEach(e=>{ (compIndex[e]||[]).forEach(c=>{ if(c!==ch&&!m[c])m[c]=e; }); if(wholeTarget(e,ch)&&!m[e])m[e]=e; }); return m; }
+// 同じ名前の部品でも画数が違うと形の対応がつかない（例：亀の电は 9 画、俺の电は 5 画）。そういう字へは渡らない
+function sameCnt(n,c,e){ const k=partCnt[c]&&partCnt[c][e]; return !n||!k||n===k; }
+function cntIn(ch,e){ return partCnt[ch]&&partCnt[ch][e] || (e===ch&&D.tree[ch]?strokes(tree(ch)).length:0); }
+function neighborsOf(ch){ const m={}; partsOf(ch).forEach(e=>{ const n=cntIn(ch,e); (compIndex[e]||[]).forEach(c=>{ if(c!==ch&&!m[c]&&sameCnt(n,c,e))m[c]=e; }); if(wholeTarget(e,ch)&&!m[e])m[e]=e; }); return m; }
 function findPath(a,b,via){ const dist={}; dist[b]=0; let q=[b]; while(q.length){ const nq=[]; q.forEach(c=>{ Object.keys(neighborsOf(c)).forEach(n=>{ if(dist[n]===undefined){dist[n]=dist[c]+1;nq.push(n);} }); }); q=nq; }
   if(dist[a]===undefined)return null; const L=Math.max(dist[a],via+1); const path=[a]; const used=new Set([a]);
   function dfs(c,rem,prev){ if(rem===0)return c===b; const nb=neighborsOf(c); const ks=Object.keys(nb).filter(n=>!used.has(n)&&dist[n]!==undefined&&dist[n]<=rem-1&&(n!==b||rem===1)); for(let i=ks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ks[i],ks[j]]=[ks[j],ks[i]];}
@@ -107,7 +110,7 @@ function findPath(a,b,via){ const dist={}; dist[b]=0; let q=[b]; while(q.length)
     for(const n of ks){ used.add(n); path.push(n); if(dfs(n,rem-1,nb[n]))return true; path.pop(); used.delete(n); } return false; }
   if(!dfs(a,L,null)){ path.length=1; used.clear(); used.add(a); if(!dfs(a,dist[a],null))return null; }
   return path.slice(1).map((n,i)=>({e:neighborsOf(path[i])[n],next:n})); }
-function candidates(ch,ps,visited,loop){ return ps.map((p,i)=>{ const l=(compIndex[p.e]||[]).slice(); if(wholeTarget(p.e,ch)&&!l.includes(p.e))l.push(p.e); return {i,p,list:l.filter(c=>c!==ch&&(loop||!visited.includes(c)))}; }).filter(x=>x.p.alt&&x.list.length); }
+function candidates(ch,ps,visited,loop){ return ps.map((p,i)=>{ const l=(compIndex[p.e]||[]).slice(); if(wholeTarget(p.e,ch)&&!l.includes(p.e))l.push(p.e); return {i,p,list:l.filter(c=>c!==ch&&(loop||!visited.includes(c))&&(c===p.e||sameCnt(p.s.length,c,p.e)))}; }).filter(x=>x.p.alt&&x.list.length); }
 function parsePath(v){ const toks=(v||'').trim().split(/\s+/); const c=[...toks[0]||''][0]; if(!c||!has(c))return null; const sc=toks.slice(1).filter(t=>t.includes('>')).map(t=>{const [e,n]=t.split('>');return {e,next:[...n][0]};}); return {c,sc}; }
 function pathStr(start,steps){ return start+(steps.length?' '+steps.map(r=>r.e+'>'+r.next).join(' '):''); }
 // Path 文字列に出てくる字（読み込みが要るもの）
