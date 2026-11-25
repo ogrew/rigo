@@ -91,7 +91,7 @@ $('vol').oninput=refreshUI; $('sound').onchange=()=>{ refreshUI(); if($('sound')
 document.addEventListener('mousedown',e=>{ if(e.target.closest&&e.target.closest('button'))e.preventDefault(); },true);
 $('scope').addEventListener('change',async()=>{ const sc=$('scope').value; try{ await R.ensureScope(sc); }catch(e){ return; } if($('scope').value===sc)R.buildIndex(sc); });
 R.load('data/',p=>setStatus('loading '+Math.round(p*100)+'%')).then(async()=>{
-  const h=location.hash; if(SH.isLegacy(h)){ let st=null; try{ st=JSON.parse(decodeURIComponent(h.slice(1))); }catch(e){} applyState(st); } // 旧形式（#{JSON}）
+  const h=location.hash; if(SH.isLegacy(h)){ let st=null; try{ st=JSON.parse(decodeURIComponent(h.slice(1))); }catch(e){} applyState(st); if(st&&st.nav)SH.setCarry({m:st.nav.mode,g:st.nav.goal,v:st.nav.via}); } // 旧形式（#{JSON}）。Mode / Goal / Via は戻るときまで預かる
   else { const r=SH.decode(h); if(r&&r.path)$('path').value=r.path; refreshUI(); }
   if($('scope').value!=='joyo'){ try{ await R.ensureScope($('scope').value); }catch(e){ $('scope').value='joyo'; } }
   R.buildIndex($('scope').value); if(!$('path').value)$('path').value='森 木>梅 毋>海'; showFirst(); }).catch(e=>{ console.error(e); setStatus('字形データを読めませんでした'); });

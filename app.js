@@ -55,8 +55,10 @@ $('replay').onclick=()=>{ const p=R.parsePath($('path').value); if(!p){setStatus
 async function copyText(txt,msg){ try{await navigator.clipboard.writeText(txt);setStatus(msg);}catch(e){ setStatus(txt); } }
 $('copy').onclick=()=>copyText($('path').value,'copied');
 // Share：Path と見た目の設定を URL にしてコピー（開くとその通りに再生される）
-$('share').onclick=()=>{ const p=R.parsePath($('path').value); if(!p||!p.sc.length){setStatus('共有できる Path がありません');return;} copyText(SH.url('',$('path').value),'share link copied'); };
-$('export').onclick=()=>{ token++; player.stop(); location.href=SH.url('export.html',$('path').value); };
+$('share').onclick=()=>{ const p=R.parsePath($('path').value); if(!p||!p.sc.length){setStatus('共有できる Path がありません');return;} copyText(SH.url('',$('path').value,navExt()),'share link copied'); };
+$('export').onclick=()=>{ token++; player.stop(); location.href=SH.url('export.html',$('path').value,navExt()); };
+// Mode は URL の m に載せる（Auto は既定なので載せない）。Goal / Via は share.js の F で扱う
+function navExt(){ return {m:mode!=='auto'?mode:undefined}; }
 (()=>{ const svg=$('stage'); const hit=e=>{const t=e.target.closest&&e.target.closest('[data-part]'); return t?+t.dataset.part:-1;};
   svg.addEventListener('mousemove',e=>{ if(!S.pickable)return; const i=hit(e); if(i!==S.hl){S.hl=i;draw();} });
   svg.addEventListener('mouseleave',()=>{ if(!S.pickable)return; if(S.hl!==-1){S.hl=-1;draw();} });
@@ -83,13 +85,13 @@ function applyState(st){ if(!st)return false; try{
   $('beatv').textContent=(+$('beat').value).toFixed(2); $('gapv').textContent=$('gap').value; $('zoomv').textContent=(+$('zoom').value).toFixed(2); $('swv').textContent=$('sw').value; $('l_sizev').textContent=$('l_size').value; $('volv').textContent=(+$('vol').value).toFixed(2); $('labopts').style.display=$('labels').checked?'':'none'; $('soundopts').style.display=$('sound').checked?'':'none';
   return !!st.path; }catch(e){ return false; } }
 function readHash(){ const h=location.hash; if(h.length<2)return null; // 新形式（#p=…）→ 画面に反映済みで {path}。旧形式（#{JSON}）→ applyState
-  if(SH.isLegacy(h)){ try{ const st=JSON.parse(decodeURIComponent(h.slice(1))); return applyState(st)?{path:$('path').value}:null; }catch(e){ return null; } }
-  const r=SH.decode(h); if(!r)return null; refreshUI(); if(r.path)$('path').value=r.path; return r.path?r:null; }
+  if(SH.isLegacy(h)){ try{ const st=JSON.parse(decodeURIComponent(h.slice(1))); if(!applyState(st))return null; const nv=st.nav||{}; if(nv.goal!=null)$('goal').value=nv.goal; if(nv.via!=null)$('via').value=nv.via; return {path:$('path').value,mode:nv.mode}; }catch(e){ return null; } }
+  const r=SH.decode(h); if(!r)return null; refreshUI(); if(r.path)$('path').value=r.path; return r.path?{path:r.path,mode:r.q.m}:null; }
 function refreshUI(){ $('beatv').textContent=(+$('beat').value).toFixed(2); $('gapv').textContent=$('gap').value; $('zoomv').textContent=(+$('zoom').value).toFixed(2); $('swv').textContent=$('sw').value; $('l_sizev').textContent=$('l_size').value; $('volv').textContent=(+$('vol').value).toFixed(2); $('labopts').style.display=$('labels').checked?'':'none'; $('soundopts').style.display=$('sound').checked?'':'none'; }
 R.load('data/',p=>setStatus('loading '+Math.round(p*100)+'%')).then(async()=>{
   const shared=readHash(); if(location.hash)history.replaceState(null,'',location.pathname+location.search);
   if($('scope').value!=='joyo'){ try{ await R.ensureScope($('scope').value,p=>setStatus('loading '+Math.round(p*100)+'%')); }catch(e){ $('scope').value='joyo'; } }
   setStatus('indexing…'); R.buildIndex($('scope').value); setStatus('ready');
-  if(innerWidth<=700)$('settoggle').click(); setMode('auto');
+  if(innerWidth<=700)$('settoggle').click(); setMode(shared&&['auto','manual','route'].includes(shared.mode)?shared.mode:'auto');
   if(shared){ const p=R.parsePath(shared.path); if(p&&p.sc.length){ $('start').value=p.c; run(p.c,p.sc); return; } } // 共有リンク：その Path を再生
   const cands=R.scopeChars().filter(c=>{const ps=R.parts(c);return ps&&ps.some(p=>p.alt&&(R.compIndex[p.e]||[]).length>1);}); const st0=cands[Math.floor(Math.random()*cands.length)]; $("start").value=st0; run(st0); }).catch(e=>{ console.error(e); setStatus('字形データを読めませんでした'); });
