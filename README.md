@@ -13,6 +13,10 @@ Meaning is never consulted — only shape decides where the chain goes.
 - **Auto**: Start の字から部品をランダムに選んで渡り歩く（32 字で止まる）
 - **Manual**: ほどけたら、キャンバス上の箱をクリックして進む部品を選ぶ
 - **Route**: Start から Goal まで、Via 字を挟む経路を探して再生する
+- **Whole char**（Settings › Motion、既定 ON）: 字そのものを部品として渡す
+  - ほどけない字は、まるごと部品になって、それを含む字へ渡る（`平 平>評`：平が評の旁になる）
+  - 取り出した部品が単独の字でもあれば、そのままその字になる（`奇 大>大`：奇から出た大が大になる）
+  - OFF にすると従来どおり（ほどける字の部品だけで渡る）。Path に書かれた経路の Replay / Export は、この設定によらず通る
 - **Path**: 辿った経路（`森 木>梅 毋>海`）。貼り直して Replay できる
 - **Share**: Path と見た目の設定を URL にしてコピーする（`index.html#p=森木梅毋海&st=brush&ink=c00000`）。開くとその通りに再生される。既定値と違う設定だけが URL に載る
 - **Export →**: Path を 1080×1080 / 30fps の MP4（H.264 + AAC）に書き出す。音は同じ時刻表から合成して埋め込む

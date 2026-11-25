@@ -5,7 +5,7 @@
 const NS='http://www.w3.org/2000/svg';
 const STROKES=new Set(['一','丨','丶','丿','乙','亅','乚','㇏','㇒','㇇','㇉','乛']);
 const VC=[54.5,51]; // ほどいた全体を寄せる中心
-let D=null, cache={}, compIndex={}, leafSet={}, SYNTH={};
+let D=null, cache={}, compIndex={}, leafSet={}, soloSet={}, SYNTH={}; // soloSet: 範囲内でほどけない字
 
 // ---------- データの読み込み（data/：meta + 3 層。src/split_data.js で生成） ----------
 // 層 0 = 常用とその部品、1 = 人名用、2 = その他。層 k の字が使う部品の字形は必ず層 k 以下に入っている。
@@ -69,6 +69,11 @@ function parts(ch,gap,zoom){ const t=tree(ch); if(isLeaf(t))return null; const o
     out.fit=Math.min(1,(X1-X0)/(x1-x0),(Y1-Y0)/(y1-y0)); }
   return out; }
 // 単独の字形を持たない部品は、最初に出てきた文脈の形を中央に寄せて「素の形」の代わりにする
+// 字そのものを 1 つの部品として扱う（ほどけない字を渡すとき／部品がそのまま字になるとき）。parts() と同じ形で返す
+function wholeParts(ch){ if(!has(ch)||!D.tree[ch])return null; const t=tree(ch), s=strokes(t); if(!s.length)return null;
+  const out=[{e:ch,s,alt:s,bb:t.bb,off:[0,0],pos:'',ty:types(t),orig:''}]; out.fit=1; return out; }
+// 描くための部品：ほどければ parts、ほどけなければ字そのもの
+function partsOrWhole(ch,gap,zoom){ return parts(ch,gap,zoom)||wholeParts(ch); }
 function synthShape(s){ const b=bbOf(s); const k=93/Math.max(b[2]-b[0],b[3]-b[1],1e-6), w=(b[2]-b[0])*k, h=(b[3]-b[1])*k, ox=54.5-w/2, oy=54.5-h/2; return s.map(st=>st.map(q=>[(q[0]-b[0])*k+ox,(q[1]-b[1])*k+oy])); }
 function synthSources(){ const src={}; Object.keys(D.tree).forEach(ch=>{ const t=tree(ch); (function rec(n){ if(isLeaf(n)){ if(n.e&&!has(n.e)){ const s=strokes(n); const key=n.e+'/'+s.length; if(!src[key])src[key]=s; } return; } n.kids.forEach(rec); })(t); }); return src; }
 function synthAlts(){ SYNTH={};
@@ -77,7 +82,7 @@ function synthAlts(){ SYNTH={};
 function altOf(n,s){ if(n.e&&has(n.e)){ if(!D.tree[n.e])return null; const ss=strokes(tree(n.e)); if(ss.length===s.length) return n.ap?n.ap.map(j=>ss[j]):ss; } const a=SYNTH[n.e+'/'+s.length]; return a||null; }
 let SCOPE='joyo'; const inScope=(ch,sc)=>{ const g=(D.grade||{})[ch]||0; return sc==='all'?true: sc==='jinmei'?(g>0&&g<=10): (g>0&&g<=8); };
 function scopeChars(sc){ return D.order.filter(c=>inScope(c,sc||SCOPE)); }
-function buildIndex(sc){ SCOPE=sc||SCOPE; if(!Object.keys(SYNTH).length)synthAlts(); compIndex={}; leafSet={}; scopeChars(SCOPE).forEach(ch=>{const ps=parts(ch); if(!ps)return; const seen=new Set(); ps.forEach(p=>{ if(p.e&&p.alt&&!seen.has(p.e)){seen.add(p.e);(compIndex[p.e]=compIndex[p.e]||[]).push(ch);(leafSet[ch]=leafSet[ch]||[]).push(p.e);} }); }); }
+function buildIndex(sc){ SCOPE=sc||SCOPE; if(!Object.keys(SYNTH).length)synthAlts(); compIndex={}; leafSet={}; soloSet={}; scopeChars(SCOPE).forEach(ch=>{const ps=parts(ch); if(!ps){ if(D.tree[ch])soloSet[ch]=1; return; } const seen=new Set(); ps.forEach(p=>{ if(p.e&&p.alt&&!seen.has(p.e)){seen.add(p.e);(compIndex[p.e]=compIndex[p.e]||[]).push(ch);(leafSet[ch]=leafSet[ch]||[]).push(p.e);} }); }); }
 
 // ---------- 画の対応づけ ----------
 function normalize(polys){ const b=bbOf(polys); const k=1/Math.max(b[2]-b[0],b[3]-b[1],1e-6); return polys.map(s=>s.map(q=>[(q[0]-b[0])*k,(q[1]-b[1])*k])); }
@@ -88,7 +93,13 @@ function matchStrokes(A,B){ const a=normalize(A),b=normalize(B); const n=a.lengt
   return perm; }
 
 // ---------- 網（経路） ----------
-function neighborsOf(ch){ const m={}; (leafSet[ch]||[]).forEach(e=>(compIndex[e]||[]).forEach(c=>{ if(c!==ch&&!m[c])m[c]=e; })); return m; }
+// 字そのものを渡す規則（既定で有効）：
+//   出る側：ほどけない字は、字全体を部品としてその字を部品に持つ字へ渡す（平 → 評）
+//   入る側：取り出した部品が単独の字でもあれば、その字自身へ渡す（奇 → 大）
+let WHOLE=true; function setWhole(v){ WHOLE=!!v; }
+function partsOf(ch){ return leafSet[ch]||(WHOLE&&soloSet[ch]?[ch]:[]); }
+function wholeTarget(e,ch){ return WHOLE&&e!==ch&&has(e)&&inScope(e,SCOPE)&&!!D.tree[e]; }
+function neighborsOf(ch){ const m={}; partsOf(ch).forEach(e=>{ (compIndex[e]||[]).forEach(c=>{ if(c!==ch&&!m[c])m[c]=e; }); if(wholeTarget(e,ch)&&!m[e])m[e]=e; }); return m; }
 function findPath(a,b,via){ const dist={}; dist[b]=0; let q=[b]; while(q.length){ const nq=[]; q.forEach(c=>{ Object.keys(neighborsOf(c)).forEach(n=>{ if(dist[n]===undefined){dist[n]=dist[c]+1;nq.push(n);} }); }); q=nq; }
   if(dist[a]===undefined)return null; const L=Math.max(dist[a],via+1); const path=[a]; const used=new Set([a]);
   function dfs(c,rem,prev){ if(rem===0)return c===b; const nb=neighborsOf(c); const ks=Object.keys(nb).filter(n=>!used.has(n)&&dist[n]!==undefined&&dist[n]<=rem-1&&(n!==b||rem===1)); for(let i=ks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ks[i],ks[j]]=[ks[j],ks[i]];}
@@ -96,7 +107,7 @@ function findPath(a,b,via){ const dist={}; dist[b]=0; let q=[b]; while(q.length)
     for(const n of ks){ used.add(n); path.push(n); if(dfs(n,rem-1,nb[n]))return true; path.pop(); used.delete(n); } return false; }
   if(!dfs(a,L,null)){ path.length=1; used.clear(); used.add(a); if(!dfs(a,dist[a],null))return null; }
   return path.slice(1).map((n,i)=>({e:neighborsOf(path[i])[n],next:n})); }
-function candidates(ch,ps,visited,loop){ return ps.map((p,i)=>({i,p,list:(compIndex[p.e]||[]).filter(c=>c!==ch&&(loop||!visited.includes(c)))})).filter(x=>x.p.alt&&x.list.length); }
+function candidates(ch,ps,visited,loop){ return ps.map((p,i)=>{ const l=(compIndex[p.e]||[]).slice(); if(wholeTarget(p.e,ch)&&!l.includes(p.e))l.push(p.e); return {i,p,list:l.filter(c=>c!==ch&&(loop||!visited.includes(c)))}; }).filter(x=>x.p.alt&&x.list.length); }
 function parsePath(v){ const toks=(v||'').trim().split(/\s+/); const c=[...toks[0]||''][0]; if(!c||!has(c))return null; const sc=toks.slice(1).filter(t=>t.includes('>')).map(t=>{const [e,n]=t.split('>');return {e,next:[...n][0]};}); return {c,sc}; }
 function pathStr(start,steps){ return start+(steps.length?' '+steps.map(r=>r.e+'>'+r.next).join(' '):''); }
 // Path 文字列に出てくる字（読み込みが要るもの）
@@ -136,7 +147,7 @@ function debrisSnap(ctx,moves){ const mv=new Map(moves.map(m=>[m.d,m])); return 
 function newCtx(cfg,start){ return {cfg,debris:[],visited:[start],t:0}; }
 function seg(ctx,dur,phase,fn,o){ const s=Object.assign({t0:ctx.t,dur,phase,fn,snd:[],deb:debrisSnap(ctx,[]),eased:false,visitedAt:ctx.visited.slice()},o||{}); ctx.t+=dur; return s; }
 function assembledItems(ps){ const items=[]; ps.forEach(p=>p.s.forEach(s=>items.push({pts:s,op:1}))); return items; }
-function stepA(ctx,ch){ const cfg=ctx.cfg, B=cfg.beat, gap=cfg.gap; const ps=parts(ch,gap,cfg.zoom); if(!ps)return null; const off=ps.map(p=>p.off); const segs=[];
+function stepA(ctx,ch){ const cfg=ctx.cfg, B=cfg.beat, gap=cfg.gap; const ps=cfg.whole===false?parts(ch,gap,cfg.zoom):partsOrWhole(ch,gap,cfg.zoom); if(!ps)return null; const off=ps.map(p=>p.off); const segs=[];
   const base=assembledItems(ps);
   segs.push(seg(ctx,B,'hold',(te,S)=>{ S.items=base; S.labels=[]; S.showBoxes=false; S.hl=-1; S.guideLine=null; S.view=1; }));
   const keep=cfg.keep; const from=ps.map(p=>p.s), to=ps.map((p,i)=>(keep?p.s:(p.alt||p.s)).map(s=>s.map(q=>[q[0]+off[i][0],q[1]+off[i][1]])));
@@ -148,7 +159,7 @@ function stepA(ctx,ch){ const cfg=ctx.cfg, B=cfg.beat, gap=cfg.gap; const ps=par
   for(let i=0;i<n;i++){ segs.push(seg(ctx,step,'scan',(te,S)=>{ S.view=fit; S.items=exploded; S.labels=lab.map(l=>Object.assign({},l,{op:1})); S.showBoxes=true; S.hl=i; S.guideLine=null; },{snd:[{at:0,kind:'tick'}]})); }
   return {segs,data:{ch,ps,off,to,lab,fit,exploded,keep}}; }
 function stepB(ctx,data,pick){ const cfg=ctx.cfg, B=cfg.beat, gap=cfg.gap; const {ch,ps,to,lab,fit,exploded,keep}=data; const segs=[];
-  const P=ps[pick.idx], next=pick.next; const nps=parts(next,gap,cfg.zoom); const ni=nps.findIndex(q=>q.e===P.e&&q.alt); const Q=nps[ni];
+  const P=ps[pick.idx], next=pick.next; const nps=partsOrWhole(next,gap,cfg.zoom); const ni=nps.findIndex(q=>q.e===P.e&&q.alt); const Q=nps[ni];
   const pb=to[pick.idx].flat(); const cx=pb.reduce((a,q)=>a+q[0],0)/pb.length, cy=pb.reduce((a,q)=>a+q[1],0)/pb.length; const gl={x0:cx,y0:cy,x1:(Q.bb[0]+Q.bb[2])/2,y1:(Q.bb[1]+Q.bb[3])/2,bb:Q.bb};
   const emph=(te,S)=>{ S.view=fit; S.items=[]; ps.forEach((p,i)=>to[i].forEach(s=>S.items.push({pts:s,op:i===pick.idx?1:1-0.6*te,gray:i!==pick.idx,part:i}))); S.labels=lab.map((l,i)=>Object.assign({},l,{op:i===pick.idx?1:1-0.6*te})); S.showBoxes=true; S.hl=pick.idx; S.guideLine=Object.assign({op:te},gl); };
   segs.push(seg(ctx,B*0.5,'select',emph,{eased:true,snd:[{at:0,kind:'relay'}]}));
@@ -165,10 +176,10 @@ function stepB(ctx,data,pick){ const cfg=ctx.cfg, B=cfg.beat, gap=cfg.gap; const
   ctx.visited.push(next); const asm=assembledItems(nps);
   segs.push(seg(ctx,B*2,'assemble',(te,S)=>{ S.view=1; S.items=asm; S.labels=[]; S.showBoxes=false; S.hl=-1; S.guideLine=null; },{snd:[{at:0,kind:'relay'}]}));
   return {segs,next}; }
-function endSeg(ctx,dur,ch){ const ps=parts(ch,ctx.cfg.gap,ctx.cfg.zoom); const items=ps?assembledItems(ps):[]; return seg(ctx,dur,'end',(te,S)=>{ S.view=1; S.items=items; S.labels=[]; S.showBoxes=false; S.hl=-1; S.guideLine=null; },{snd:[{at:0,kind:'end'}]}); }
+function endSeg(ctx,dur,ch){ const ps=partsOrWhole(ch,ctx.cfg.gap,ctx.cfg.zoom); const items=ps?assembledItems(ps):[]; return seg(ctx,dur,'end',(te,S)=>{ S.view=1; S.items=items; S.labels=[]; S.showBoxes=false; S.hl=-1; S.guideLine=null; },{snd:[{at:0,kind:'end'}]}); }
 // Path 全体をタイムラインにする（Replay / Route / Export 用）。leadIn/leadOut は秒
-function compile(start,steps,cfg,leadIn,leadOut){ const ctx=newCtx(cfg,start); const segs=[]; let ch=start;
-  if(leadIn>0){ const ps=parts(ch,cfg.gap,cfg.zoom); const items=ps?assembledItems(ps):[]; segs.push(seg(ctx,leadIn,'hold',(te,S)=>{ S.view=1; S.items=items; S.labels=[]; S.showBoxes=false; S.hl=-1; S.guideLine=null; })); }
+function compile(start,steps,cfg,leadIn,leadOut){ cfg=Object.assign({},cfg,{whole:true}); const ctx=newCtx(cfg,start); const segs=[]; let ch=start; // Path に書かれた経路は、設定によらず字そのものの受け渡しも通す
+  if(leadIn>0){ const ps=partsOrWhole(ch,cfg.gap,cfg.zoom); const items=ps?assembledItems(ps):[]; segs.push(seg(ctx,leadIn,'hold',(te,S)=>{ S.view=1; S.items=items; S.labels=[]; S.showBoxes=false; S.hl=-1; S.guideLine=null; })); }
   for(const st of steps){ const A=stepA(ctx,ch); if(!A)break; const idx=A.data.ps.findIndex(p=>p.e===st.e&&p.alt); if(idx<0||!has(st.next))break; segs.push(...A.segs); const Bq=stepB(ctx,A.data,{idx,next:st.next}); segs.push(...Bq.segs); ch=Bq.next; }
   segs.push(endSeg(ctx,Math.max(0.001,leadOut||0),ch));
   return {segs,dur:ctx.t,visited:ctx.visited,start,steps}; }
@@ -241,6 +252,6 @@ function makePlayer(){ const P={paused:false,playing:false,_raf:0,_tok:0};
   P.stop=function(){ P._tok++; cancelAnimationFrame(P._raf); P.playing=false; };
   return P; }
 
-window.RIGO={ NS,STROKES,VC,EASE, get D(){return D;}, set D(v){D=v;cache={};TIER=null;SYNTH={};}, tree,parts,isLeaf,strokes,buildIndex,has,tierOf,load,ensure,ensureScope,ensureTier,synthSources,pathChars,scopeChars,inScope,get compIndex(){return compIndex;}, candidates,findPath,parsePath,pathStr,
+window.RIGO={ NS,STROKES,VC,EASE, get D(){return D;}, set D(v){D=v;cache={};TIER=null;SYNTH={};}, tree,parts,wholeParts,partsOrWhole,setWhole,isLeaf,strokes,buildIndex,has,tierOf,load,ensure,ensureScope,ensureTier,synthSources,pathChars,scopeChars,inScope,get compIndex(){return compIndex;}, candidates,findPath,parsePath,pathStr,
   newCtx,stepA,stepB,endSeg,compile,frameAt,applySeg,soundEvents,scheduleSound,draw,makePlayer,labelFor,mix };
 })();
