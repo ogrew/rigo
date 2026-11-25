@@ -6,7 +6,7 @@
 // [URL のキー, 要素 id, 既定値]。既定値は index.html の初期値と揃える
 const F=[
   ['st','style','round'],['sw','sw','3'],['ink','ink','#111111'],['pp','paper','#ffffff'],
-  ['bt','beat','0.5'],['ez','easing','back'],['gp','gap','18'],['zm','zoom','1'],['sc','scope','joyo'],['kp','keep',true],
+  ['bt','beat','0.5'],['ez','easing','back'],['gp','gap','18'],['zm','zoom','1'],['sc','scope','joyo'],['kp','keep',true],['wh','whole',true],
   ['bx','boxes',true],['gl','guide',true],['hud','hud',true],['rl','ruler',true],['db','debris',true],
   ['lb','labels',false],['ln','l_name',true],['lc','l_code',true],['lp','l_pos',true],['ls','l_strokes',false],['lr','l_read',false],['lm','l_mean',false],['lz','l_size','4'],
   ['snd','sound',false],['vl','vol','1'],

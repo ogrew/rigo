@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id); const R=window.RIGO, SH=window.RIGO_SHARE; const player=R.makePlayer();
 let S={items:[],labels:[],showBoxes:false,hl:-1,phase:'',guideLine:null,view:1,debris:[],visited:[],pickable:null};
 function V(){ return {style:$('style').value, sw:+$('sw').value, ink:$('ink').value, paper:$('paper').value, boxes:$('boxes').checked, hud:$('hud').checked, ruler:$('ruler').checked, debris:$('debris').checked, guide:$('guide').checked, lsize:+$('l_size').value, zoom:+$('zoom').value, vb:[-22,-28,153,165]}; }
-function cfg(){ return {gap:+$('gap').value, zoom:+$('zoom').value, scope:$('scope').value, keep:$('keep').checked, beat:+$('beat').value, debris:$('debris').checked, labels:{on:$('labels').checked,name:$('l_name').checked,code:$('l_code').checked,pos:$('l_pos').checked,strokes:$('l_strokes').checked,read:$('l_read').checked,mean:$('l_mean').checked}}; }
+function cfg(){ return {gap:+$('gap').value, zoom:+$('zoom').value, scope:$('scope').value, keep:$('keep').checked, whole:$('whole').checked, beat:+$('beat').value, debris:$('debris').checked, labels:{on:$('labels').checked,name:$('l_name').checked,code:$('l_code').checked,pos:$('l_pos').checked,strokes:$('l_strokes').checked,read:$('l_read').checked,mean:$('l_mean').checked}}; }
 function draw(){ R.draw($('stage'),S,V()); }
 let AC=null; function snd(kind){ if(!$('sound').checked)return; try{ if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); R.scheduleSound(AC,AC.destination,kind,AC.currentTime,+$('vol').value);}catch(e){} }
 let AUTO_LIMIT=32; let autoStopped=false; // Auto はこの字数で止める
@@ -26,7 +26,7 @@ async function run(startCh,script){
   if(token!==my)return; running=true; recording=[]; const sc=script?script.slice():null; ctx=R.newCtx(cfg(),startCh); lastPart=null; autoStopped=false; S.pickable=null; S.visited=[startCh]; S.debris=[]; if(!sc)$('path').value=startCh;
   let ch=startCh;
   while(token===my){
-    ctx.cfg=cfg(); // 設定の変更は次のステップから
+    ctx.cfg=cfg(); if(sc)ctx.cfg.whole=true; // 設定の変更は次のステップから。Path の再生は字そのものの受け渡しも通す
     if(!sc&&mode==='auto'&&ctx.visited.length>=AUTO_LIMIT){ await playSegs([R.endSeg(ctx,0.05,ch)]); if(token!==my)return; autoStopped=true; histRender(); setStatus('auto stop: '+AUTO_LIMIT+'字'); running=false; return; }
     if(sc&&!sc.length){ await playSegs([R.endSeg(ctx,0.05,ch)]); if(token!==my)return; setStatus('到着: '+ctx.visited.join(' → ')); running=false; return; }
     const A=R.stepA(ctx,ch); if(!A){ S.items=[]; draw(); setStatus(ch+' はほどけません'); running=false; return; }
@@ -70,6 +70,7 @@ $('sound').addEventListener('change',()=>{ $('soundopts').style.display=$('sound
 $('labels').addEventListener('change',()=>{$('labopts').style.display=$('labels').checked?'':'none';});
 $('beat').oninput=()=>{$('beatv').textContent=(+$('beat').value).toFixed(2);};
 $('gap').oninput=()=>{$('gapv').textContent=$('gap').value;};
+$('whole').onchange=()=>{ R.setWhole($('whole').checked); setStatus('whole char: '+($('whole').checked?'on':'off')); };
 $('scope').onchange=async()=>{ const sc=$('scope').value; try{ await R.ensureScope(sc,p=>setStatus('loading '+Math.round(p*100)+'%')); }catch(e){ setStatus('字形データを読めませんでした'); return; } if($('scope').value!==sc)return; R.buildIndex(sc); setStatus('scope: '+$('scope').options[$('scope').selectedIndex].text); };
 $('zoom').oninput=()=>{$('zoomv').textContent=(+$('zoom').value).toFixed(2);draw();};
 ['style','sw','ink','paper','boxes','hud','ruler','debris','guide','labels','l_name','l_code','l_pos','l_strokes','l_read','l_mean','l_size'].forEach(k=>{$(k).oninput=()=>{$('swv').textContent=$('sw').value;$('l_sizev').textContent=$('l_size').value;draw();};$(k).onchange=()=>draw();});
@@ -91,7 +92,7 @@ function refreshUI(){ $('beatv').textContent=(+$('beat').value).toFixed(2); $('g
 R.load('data/',p=>setStatus('loading '+Math.round(p*100)+'%')).then(async()=>{
   const shared=readHash(); if(location.hash)history.replaceState(null,'',location.pathname+location.search);
   if($('scope').value!=='joyo'){ try{ await R.ensureScope($('scope').value,p=>setStatus('loading '+Math.round(p*100)+'%')); }catch(e){ $('scope').value='joyo'; } }
-  setStatus('indexing…'); R.buildIndex($('scope').value); setStatus('ready');
+  setStatus('indexing…'); R.setWhole($('whole').checked); R.buildIndex($('scope').value); setStatus('ready');
   if(innerWidth<=700)$('settoggle').click(); setMode(shared&&['auto','manual','route'].includes(shared.mode)?shared.mode:'auto');
   if(shared){ const p=R.parsePath(shared.path); if(p&&p.sc.length){ $('start').value=p.c; run(p.c,p.sc); return; } } // 共有リンク：その Path を再生
   const cands=R.scopeChars().filter(c=>{const ps=R.parts(c);return ps&&ps.some(p=>p.alt&&(R.compIndex[p.e]||[]).length>1);}); const st0=cands[Math.floor(Math.random()*cands.length)]; $("start").value=st0; run(st0); }).catch(e=>{ console.error(e); setStatus('字形データを読めませんでした'); });
