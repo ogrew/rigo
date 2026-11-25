@@ -6,6 +6,8 @@
 kanji taken apart; one part carried on into another kanji that contains it; taken apart again.
 Meaning is never consulted — only shape decides where the chain goes.
 
+**https://ogrew.github.io/rigo/**
+
 ## 使い方
 
 - **Auto**: Start の字から部品をランダムに選んで渡り歩く（32 字で止まる）
