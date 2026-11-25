@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>rigo favicon</title>
+<style>
+body{margin:0;background:#f6f6f6;color:#111;font:12px system-ui,-apple-system,"Noto Sans JP",sans-serif}
+main{padding:24px;display:grid;gap:20px;max-width:900px}
+.card{background:#fff;border:1px solid #dcdcdc;padding:18px;display:grid;grid-template-columns:repeat(2,160px) 1fr;gap:20px;align-items:start}
+.big{width:160px;height:160px;border:1px solid #eee;display:block}
+.cap{font:10px ui-monospace,monospace;color:#8a8a8a;margin-top:4px;text-align:center;letter-spacing:.08em}
+h2{font:700 11px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;margin:0 0 6px}
+p{margin:0 0 12px;line-height:1.7;color:#444}
+.sizes{display:flex;gap:14px;align-items:end;flex-wrap:wrap}
+.sizes figure{margin:0;text-align:center;color:#8a8a8a;font:10px ui-monospace,monospace}
+canvas.px{image-rendering:pixelated;width:64px;height:64px;border:1px solid #eee;display:block;margin-bottom:4px}
+.tabs{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.tab{display:flex;gap:8px;align-items:center;padding:7px 12px;border-radius:8px 8px 0 0;width:150px}
+.tab.light{background:#f1f1f1}
+.tab.dark{background:#35363a;color:#eee}
+.tab img{width:16px;height:16px}
+@media (max-width:720px){.card{grid-template-columns:1fr 1fr}.card>div:last-child{grid-column:1/-1}}
+</style></head><body><main id="m"></main>
+<script src="designs.js?4"></script>
+<script>
+const {D, svg, at} = RIGO_FAV, NS = 'http://www.w3.org/2000/svg';
+const m = document.getElementById('m'), live = [];
+for (const d of D) {
+  const url = 'data:image/svg+xml,' + encodeURIComponent(svg(d));
+  const c = document.createElement('div'); c.className = 'card';
+  c.innerHTML = `<div><img class="big" src="${url}"><div class="cap">favicon</div></div>
+    <div><svg class="big anim" viewBox="0 0 32 32"></svg><div class="cap">motion</div></div>
+    <div><h2>${d.name}</h2><p>${d.desc}</p><div class="sizes"></div>
+    <div class="tabs"><div class="tab light"><img src="${url}">rigo</div><div class="tab dark"><img src="${url}">rigo</div></div></div>`;
+  m.appendChild(c);
+  const img = new Image(); img.onload = () => [16, 32, 48].forEach(s => {
+    const fg = document.createElement('figure'), cv = document.createElement('canvas');
+    cv.className = 'px'; cv.width = cv.height = s; cv.getContext('2d').drawImage(img, 0, 0, s, s);
+    fg.append(cv, s + 'px'); c.querySelector('.sizes').appendChild(fg);
+  }); img.src = url;
+  // motion: 部品ごとの rect を作って、キーフレームを機械的に送る
+  const a = c.querySelector('.anim'), bg = document.createElementNS(NS, 'rect');
+  bg.setAttribute('width', 32); bg.setAttribute('height', 32); bg.setAttribute('fill', '#fff'); a.appendChild(bg);
+  const els = d.p.map(pc => { const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('width', pc.slot ? pc.r[0] - 1 : pc.r[0]); r.setAttribute('height', pc.slot ? pc.r[1] - 1 : pc.r[1]);
+    if (pc.slot) { r.setAttribute('fill', 'none'); r.setAttribute('stroke', '#111'); r.setAttribute('stroke-width', 1); r.setAttribute('stroke-dasharray', '1 1'); }
+    else r.setAttribute('fill', '#111');
+    a.appendChild(r); return r; });
+  live.push({d, els});
+}
+const K = 3, HOLD = 700, MOVE = 380, STEP = HOLD + MOVE;
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function tick(now) {
+  const n = Math.floor(now / STEP), f = n % K, g = (n + 1) % K;
+  const t = ease(Math.max(0, (now % STEP - HOLD) / MOVE));
+  for (const {d, els} of live) d.p.forEach((pc, i) => {
+    const [x0, y0] = at(pc, f), [x1, y1] = at(pc, g), o = pc.slot ? .5 : 0;
+    els[i].setAttribute('x', x0 + (x1 - x0) * t + o); els[i].setAttribute('y', y0 + (y1 - y0) * t + o);
+  });
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script></body></html>
