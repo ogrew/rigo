@@ -7,9 +7,28 @@ const STROKES=new Set(['一','丨','丶','丿','乙','亅','乚','㇏','㇒','�
 const VC=[54.5,51]; // ほどいた全体を寄せる中心
 let D=null, cache={}, compIndex={}, leafSet={}, SYNTH={};
 
+// ---------- データの読み込み（data/：meta + 3 層。src/split_data.js で生成） ----------
+// 層 0 = 常用とその部品、1 = 人名用、2 = その他。層 k の字が使う部品の字形は必ず層 k 以下に入っている。
+let TIER=null, BASE='data/', META=null; const tierLoad={};
+function has(ch){ return TIER? TIER[ch]!==undefined : !!(D&&D.tree&&D.tree[ch]); }
+function tierOf(ch){ return TIER? (TIER[ch]===undefined?-1:TIER[ch]) : 0; }
+async function fetchJSON(url,onBytes){ const r=await fetch(url); if(!r.ok)throw new Error(url+' '+r.status); if(!r.body||!onBytes)return await r.json();
+  const reader=r.body.getReader(); const chunks=[]; let got=0; while(true){ const {done,value}=await reader.read(); if(done)break; chunks.push(value); got+=value.length; onBytes(value.length); }
+  const buf=new Uint8Array(got); let o=0; chunks.forEach(c=>{buf.set(c,o);o+=c.length;}); return JSON.parse(new TextDecoder().decode(buf)); }
+function loadTier(k,onProgress){ if(tierLoad[k])return tierLoad[k]; const total=(META.bytes&&META.bytes[k])||0; let got=0;
+  return tierLoad[k]=fetchJSON(BASE+'t'+k+'.json',onProgress&&total?(n=>{got+=n; onProgress(Math.min(1,got/total));}):null).then(t=>{ Object.assign(D.tree,t); }).catch(e=>{ delete tierLoad[k]; throw e; }); }
+async function ensureTier(k,onProgress){ for(let i=0;i<=Math.min(k,2);i++) await loadTier(i,onProgress); }
+// 字の列を描けるようにする（足りない層だけ読む）
+function ensure(chars,onProgress){ let k=0; (chars||[]).forEach(c=>{ k=Math.max(k,tierOf(c)); }); return ensureTier(k,onProgress); }
+function ensureScope(sc,onProgress){ return ensureTier(sc==='all'?2:sc==='jinmei'?1:0,onProgress); }
+async function load(base,onProgress){ BASE=base||BASE; META=await fetchJSON(BASE+'meta.json'); TIER={}; META.tiers.forEach((s,k)=>{ for(const c of s)TIER[c]=k; });
+  D={order:META.order,grade:META.grade,info:META.info,synth:META.synth,tree:{}}; cache={}; SYNTH={}; await loadTier(0,onProgress); return D; }
+
 // ---------- 木 ----------
+// 画は [x0,y0, dx1,dy1, …]（10 倍した整数、2 点目から差分）で入っている。素の [[x,y],…] も読める。
+function decodeStroke(s){ if(typeof s[0]!=='number')return s; const o=[]; let x=0,y=0; for(let i=0;i<s.length;i+=2){ x+=s[i]; y+=s[i+1]; o.push([x,y]); } return o; }
 function tree(ch){ if(cache[ch])return cache[ch];
-  const sc=n=>({e:n.e,p:n.p,pos:n.pos,ty:n.ty,orig:n.orig,bb:n.bb?n.bb.map(v=>v/10):null,own:n.own.map(s=>s.map(p=>[p[0]/10,p[1]/10])),alt:n.alt?n.alt.map(s=>s.map(p=>[p[0]/10,p[1]/10])):null,kids:n.kids.map(sc)});
+  const sc=n=>({e:n.e,p:n.p,pos:n.pos,ty:n.ty,orig:n.orig,bb:n.bb?n.bb.map(v=>v/10):null,own:n.own.map(s=>decodeStroke(s).map(p=>[p[0]/10,p[1]/10])),alt:n.alt?n.alt.map(s=>s.map(p=>[p[0]/10,p[1]/10])):null,kids:n.kids.map(sc)});
   return cache[ch]=norm(sc(D.tree[ch])); }
 function norm(n){ let kids=n.kids.filter(k=>k.bb); if(n.e===''&&n.own.length===0&&kids.length===1){return norm(kids[0]);} return Object.assign({},n,{kids:kids.map(norm)}); }
 function strokes(n){let o=n.own.slice();n.kids.forEach(k=>o=o.concat(strokes(k)));return o;}
@@ -49,8 +68,13 @@ function parts(ch,gap,zoom){ const t=tree(ch); if(isLeaf(t))return null; const o
     const dx=VC[0]-(x0+x1)/2, dy=VC[1]-(y0+y1)/2; out.forEach(p=>{p.off=[p.off[0]+dx,p.off[1]+dy];});
     out.fit=Math.min(1,(X1-X0)/(x1-x0),(Y1-Y0)/(y1-y0)); }
   return out; }
-function synthAlts(){ SYNTH={}; Object.keys(D.tree).forEach(ch=>{ const t=tree(ch); (function rec(n){ if(isLeaf(n)){ if(n.e&&!D.tree[n.e]){ const s=strokes(n); const key=n.e+'/'+s.length; if(!SYNTH[key]){ const b=bbOf(s); const k=93/Math.max(b[2]-b[0],b[3]-b[1],1e-6), w=(b[2]-b[0])*k, h=(b[3]-b[1])*k, ox=54.5-w/2, oy=54.5-h/2; SYNTH[key]=s.map(st=>st.map(q=>[(q[0]-b[0])*k+ox,(q[1]-b[1])*k+oy])); } } return; } n.kids.forEach(rec); })(t); }); }
-function altOf(n,s){ if(n.e&&D.tree[n.e]){ const ss=strokes(tree(n.e)); if(ss.length===s.length) return n.ap?n.ap.map(j=>ss[j]):ss; } const a=SYNTH[n.e+'/'+s.length]; return a||null; }
+// 単独の字形を持たない部品は、最初に出てきた文脈の形を中央に寄せて「素の形」の代わりにする
+function synthShape(s){ const b=bbOf(s); const k=93/Math.max(b[2]-b[0],b[3]-b[1],1e-6), w=(b[2]-b[0])*k, h=(b[3]-b[1])*k, ox=54.5-w/2, oy=54.5-h/2; return s.map(st=>st.map(q=>[(q[0]-b[0])*k+ox,(q[1]-b[1])*k+oy])); }
+function synthSources(){ const src={}; Object.keys(D.tree).forEach(ch=>{ const t=tree(ch); (function rec(n){ if(isLeaf(n)){ if(n.e&&!has(n.e)){ const s=strokes(n); const key=n.e+'/'+s.length; if(!src[key])src[key]=s; } return; } n.kids.forEach(rec); })(t); }); return src; }
+function synthAlts(){ SYNTH={};
+  if(D.synth){ Object.keys(D.synth).forEach(key=>{ SYNTH[key]=synthShape(D.synth[key].map(st=>decodeStroke(st).map(p=>[p[0]/10,p[1]/10]))); }); return; } // 事前計算済み（data/meta.json）
+  const src=synthSources(); Object.keys(src).forEach(key=>{ SYNTH[key]=synthShape(src[key]); }); }
+function altOf(n,s){ if(n.e&&has(n.e)){ if(!D.tree[n.e])return null; const ss=strokes(tree(n.e)); if(ss.length===s.length) return n.ap?n.ap.map(j=>ss[j]):ss; } const a=SYNTH[n.e+'/'+s.length]; return a||null; }
 let SCOPE='joyo'; const inScope=(ch,sc)=>{ const g=(D.grade||{})[ch]||0; return sc==='all'?true: sc==='jinmei'?(g>0&&g<=10): (g>0&&g<=8); };
 function scopeChars(sc){ return D.order.filter(c=>inScope(c,sc||SCOPE)); }
 function buildIndex(sc){ SCOPE=sc||SCOPE; if(!Object.keys(SYNTH).length)synthAlts(); compIndex={}; leafSet={}; scopeChars(SCOPE).forEach(ch=>{const ps=parts(ch); if(!ps)return; const seen=new Set(); ps.forEach(p=>{ if(p.e&&p.alt&&!seen.has(p.e)){seen.add(p.e);(compIndex[p.e]=compIndex[p.e]||[]).push(ch);(leafSet[ch]=leafSet[ch]||[]).push(p.e);} }); }); }
@@ -73,8 +97,10 @@ function findPath(a,b,via){ const dist={}; dist[b]=0; let q=[b]; while(q.length)
   if(!dfs(a,L,null)){ path.length=1; used.clear(); used.add(a); if(!dfs(a,dist[a],null))return null; }
   return path.slice(1).map((n,i)=>({e:neighborsOf(path[i])[n],next:n})); }
 function candidates(ch,ps,visited,loop){ return ps.map((p,i)=>({i,p,list:(compIndex[p.e]||[]).filter(c=>c!==ch&&(loop||!visited.includes(c)))})).filter(x=>x.p.alt&&x.list.length); }
-function parsePath(v){ const toks=(v||'').trim().split(/\s+/); const c=[...toks[0]||''][0]; if(!c||!D.tree[c])return null; const sc=toks.slice(1).filter(t=>t.includes('>')).map(t=>{const [e,n]=t.split('>');return {e,next:[...n][0]};}); return {c,sc}; }
+function parsePath(v){ const toks=(v||'').trim().split(/\s+/); const c=[...toks[0]||''][0]; if(!c||!has(c))return null; const sc=toks.slice(1).filter(t=>t.includes('>')).map(t=>{const [e,n]=t.split('>');return {e,next:[...n][0]};}); return {c,sc}; }
 function pathStr(start,steps){ return start+(steps.length?' '+steps.map(r=>r.e+'>'+r.next).join(' '):''); }
+// Path 文字列に出てくる字（読み込みが要るもの）
+function pathChars(v){ const toks=(v||'').trim().split(/\s+/); const o=[]; const c=[...toks[0]||''][0]; if(c)o.push(c); toks.slice(1).forEach(t=>{ const n=t.split('>')[1]; if(n)o.push([...n][0]); }); return o; }
 
 // ---------- 設定 ----------
 // cfg: {gap, keep, beat, ease, debris, labels:{on,name,code,pos,strokes,read,mean}}
@@ -143,7 +169,7 @@ function endSeg(ctx,dur,ch){ const ps=parts(ch,ctx.cfg.gap,ctx.cfg.zoom); const 
 // Path 全体をタイムラインにする（Replay / Route / Export 用）。leadIn/leadOut は秒
 function compile(start,steps,cfg,leadIn,leadOut){ const ctx=newCtx(cfg,start); const segs=[]; let ch=start;
   if(leadIn>0){ const ps=parts(ch,cfg.gap,cfg.zoom); const items=ps?assembledItems(ps):[]; segs.push(seg(ctx,leadIn,'hold',(te,S)=>{ S.view=1; S.items=items; S.labels=[]; S.showBoxes=false; S.hl=-1; S.guideLine=null; })); }
-  for(const st of steps){ const A=stepA(ctx,ch); if(!A)break; const idx=A.data.ps.findIndex(p=>p.e===st.e&&p.alt); if(idx<0||!D.tree[st.next])break; segs.push(...A.segs); const Bq=stepB(ctx,A.data,{idx,next:st.next}); segs.push(...Bq.segs); ch=Bq.next; }
+  for(const st of steps){ const A=stepA(ctx,ch); if(!A)break; const idx=A.data.ps.findIndex(p=>p.e===st.e&&p.alt); if(idx<0||!has(st.next))break; segs.push(...A.segs); const Bq=stepB(ctx,A.data,{idx,next:st.next}); segs.push(...Bq.segs); ch=Bq.next; }
   segs.push(endSeg(ctx,Math.max(0.001,leadOut||0),ch));
   return {segs,dur:ctx.t,visited:ctx.visited,start,steps}; }
 // 時刻 t の画面状態を S に書く（区間は t0 で探す）
@@ -215,6 +241,6 @@ function makePlayer(){ const P={paused:false,playing:false,_raf:0,_tok:0};
   P.stop=function(){ P._tok++; cancelAnimationFrame(P._raf); P.playing=false; };
   return P; }
 
-window.RIGO={ NS,STROKES,VC,EASE, get D(){return D;}, set D(v){D=v;cache={};}, tree,parts,isLeaf,strokes,buildIndex,scopeChars,inScope,get compIndex(){return compIndex;}, candidates,findPath,parsePath,pathStr,
+window.RIGO={ NS,STROKES,VC,EASE, get D(){return D;}, set D(v){D=v;cache={};TIER=null;SYNTH={};}, tree,parts,isLeaf,strokes,buildIndex,has,tierOf,load,ensure,ensureScope,ensureTier,synthSources,pathChars,scopeChars,inScope,get compIndex(){return compIndex;}, candidates,findPath,parsePath,pathStr,
   newCtx,stepA,stepB,endSeg,compile,frameAt,applySeg,soundEvents,scheduleSound,draw,makePlayer,labelFor,mix };
 })();

@@ -100,6 +100,7 @@ svg{width:min(92vw,65vh);aspect-ratio:153/165;background:var(--paper);display:bl
   <label class="hint">Path <input id="path" type="text" placeholder="然 犬>献 十>枠" title="辿った経路。編集して Replay すればその通りに再生"></label>
   <button id="replay" title="Path の通りに頭から再生して、終点で止まる">↺ Replay</button>
   <button id="copy" title="Path をコピー">Copy</button>
+  <button id="share" title="この Path と見た目の設定を URL にしてコピー。開いた人の画面でその通りに再生される">Share</button>
   <button id="export" title="この Path と設定で録画ページへ（← rigo で戻れる）">Export →</button>
  </div>
  <div class="parts" id="parts"></div>
@@ -108,4 +109,5 @@ svg{width:min(92vw,65vh);aspect-ratio:153/165;background:var(--paper);display:bl
 <footer class="credits hint">rigo · glyphs: <a href="https://kanjivg.tagaini.net/">KanjiVG</a> (CC BY-SA 3.0) · readings: <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project">KANJIDIC2</a> (EDRDG, CC BY-SA 4.0)</footer>
 </main>
 <script src="rigo-core.js"></script>
+<script src="share.js"></script>
 <script src="app.js"></script></body></html>
