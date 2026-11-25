@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="rigo — 漢字を部品にほどき、部品を別の字へ渡す装置">
+<meta property="og:title" content="rigo">
+<meta property="og:description" content="漢字を部品にほどき、部品を別の字へ渡す装置 / kanji taken apart, parts carried on">
+<title>rigo</title>
+<style>
+@font-face{font-family:'Mono';src:url('mono.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Mono';src:url('mono-bold.woff2') format('woff2');font-weight:700;font-display:swap}
+:root{--bg:#f6f6f6;--paper:#fff;--fg:#111;--mute:#8a8a8a;--line:#dcdcdc}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;font-size:12px;accent-color:#111}
+header{border-bottom:1px solid var(--line);color:var(--mute)}
+.bar{padding:10px 14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.bar.primary{border-bottom:1px solid var(--line);background:var(--paper)}
+.row{padding:5px 14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;border-bottom:1px dashed var(--line)}
+.row:last-child{border-bottom:0}
+.row .cat{font-family:'Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg);width:62px;flex:none}
+header label{display:flex;gap:6px;align-items:center}
+header b{color:var(--fg);font-weight:500}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.seg button{border:0;border-radius:0;min-width:64px;background:var(--paper)}
+.seg button.on{background:var(--fg);color:var(--paper)}
+.lab-opts{display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;padding-left:8px;border-left:1px solid var(--line)}
+#settings{display:block}
+.toggle{margin-left:auto}
+input.ch{width:2.6em;text-align:center;font-family:"Noto Serif JP",serif;font-size:14px}
+#path{width:min(60vw,360px);font-family:'Mono',ui-monospace,monospace}
+input[type=range]{width:100px;height:2px}
+input[type=color]{width:28px;height:22px;padding:0;border:1px solid var(--line);background:none}
+input[type=text],button,select{font:inherit;border:1px solid var(--line);background:var(--paper);color:var(--fg);padding:4px 8px;border-radius:2px}
+button{cursor:pointer}button.on{background:var(--fg);color:var(--paper);border-color:var(--fg)}
+main{display:flex;flex-direction:column;align-items:center;padding:14px;gap:10px}
+svg{width:min(92vw,65vh);aspect-ratio:153/165;background:var(--paper);display:block}
+.hist{font-family:"Noto Serif JP",serif;font-size:18px;letter-spacing:.1em;color:var(--mute);min-height:1.5em;max-width:92vw;white-space:normal;word-break:break-all;text-align:center;line-height:1.8}
+.hist b{color:var(--fg);font-weight:500}
+.transport{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.transport button{min-width:84px}
+.parts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;min-height:34px}
+.parts button{font-family:"Noto Serif JP",serif;font-size:18px;width:38px;height:34px;padding:0}
+.parts button:disabled{opacity:.3;cursor:default}
+.hint{color:var(--mute)}
+.credits{padding:10px 14px 18px;font-size:11px;color:var(--mute)} .credits a{color:var(--mute)}
+</style></head><body>
+<header>
+ <div class="bar primary">
+  <span class="seg" id="mode"><button data-m="auto" class="on">Auto</button><button data-m="manual">Manual</button><button data-m="route">Route</button></span>
+  <label>Start <input id="start" class="ch" type="text" maxlength="1"></label>
+  <label id="goalw" style="display:none">Goal <input id="goal" class="ch" type="text" maxlength="1"></label>
+  <label id="viaw" style="display:none">Via <input id="via" type="number" min="0" max="12" value="0" style="width:44px" title="間に挟む字の数（0 = 最短）"></label>
+  <button id="go">▶ Run</button>
+  <span id="status" class="hint"></span>
+  <button id="settoggle" class="toggle">Settings</button>
+ </div>
+ <div id="settings">
+ <div class="row"><span class="cat">Glyph</span>
+  <label>Style <select id="style"><option value="round">round</option><option value="flat">flat</option><option value="hair">hairline</option><option value="brush">brush (taper)</option><option value="nib">nib (thin H / thick V)</option></select></label>
+  <label>Stroke <input id="sw" type="range" min="0.5" max="10" step="0.25" value="3"><b id="swv">3</b></label>
+  <label>Ink <input id="ink" type="color" value="#111111"></label>
+  <label>Paper <input id="paper" type="color" value="#ffffff"></label>
+ </div>
+ <div class="row"><span class="cat">Motion</span>
+  <label>Beat <input id="beat" type="range" min="0.2" max="1" step="0.05" value="0.5"><b id="beatv">0.50</b>s</label>
+  <label>Easing <select id="easing"><option value="inout">ease in-out</option><option value="out">ease out (decelerate)</option><option value="in">ease in (accelerate)</option><option value="linear">linear</option><option value="snap">snap (fast start, slow settle)</option><option value="back" selected>overshoot</option><option value="anticipate">anticipate (pull back, then go)</option></select></label>
+  <label>Distance <input id="gap" type="range" min="6" max="80" step="1" value="18"><b id="gapv">18</b></label>
+  <label>Scale <input id="zoom" type="range" min="0.25" max="1" step="0.05" value="1"><b id="zoomv">1.00</b></label>
+  <label>Scope <select id="scope"><option value="joyo" selected>常用</option><option value="jinmei">常用＋人名用</option><option value="all">全部</option></select></label>
+  <label><input id="keep" type="checkbox" checked> Keep shape</label>
+  <label id="loopw"><input id="loopv" type="checkbox"> Allow revisits</label>
+ </div>
+ <div class="row"><span class="cat">Overlay</span>
+  <label><input id="boxes" type="checkbox" checked> Boxes</label>
+  <label><input id="guide" type="checkbox" checked> Guide Line</label>
+  <label><input id="hud" type="checkbox" checked> HUD</label>
+  <label><input id="ruler" type="checkbox" checked> Ruler</label>
+  <label><input id="debris" type="checkbox" checked> Debris</label>
+  <label><input id="labels" type="checkbox"> Labels</label>
+  <span class="lab-opts" id="labopts" style="display:none">
+   <label><input id="l_name" type="checkbox" checked> name</label>
+   <label><input id="l_code" type="checkbox" checked> code</label>
+   <label><input id="l_pos" type="checkbox" checked> position</label>
+   <label><input id="l_strokes" type="checkbox"> strokes</label>
+   <label><input id="l_read" type="checkbox"> reading</label>
+   <label><input id="l_mean" type="checkbox"> meaning</label>
+   <label>size <input id="l_size" type="range" min="1.5" max="7" step="0.25" value="4"><b id="l_sizev">4</b></label>
+  </span>
+ </div>
+ <div class="row"><span class="cat">Sound</span>
+  <label><input id="sound" type="checkbox"> Sound</label>
+  <span id="soundopts" class="lab-opts" style="display:none"><label>Volume <input id="vol" type="range" min="0.5" max="2" step="0.05" value="1"><b id="volv">1.00</b></label></span>
+ </div>
+ </div>
+</header>
+<main>
+ <svg id="stage" viewBox="-22 -28 153 165" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect id="bg" x="-22" y="-28" width="153" height="165" fill="#fff" stroke="none"/><g id="art"></g></svg>
+ <div class="transport">
+  <button id="pause" title="一時停止／再開（動きを止めるだけ。履歴は続く）">❚❚ Pause</button>
+  <button id="stop" title="この連鎖を終える。Path はそのまま残る">■ End</button>
+  <span style="border-left:1px solid var(--line);height:22px"></span>
+  <label class="hint">Path <input id="path" type="text" placeholder="然 犬>献 十>枠" title="辿った経路。編集して Replay すればその通りに再生"></label>
+  <button id="replay" title="Path の通りに頭から再生して、終点で止まる">↺ Replay</button>
+  <button id="copy" title="Path をコピー">Copy</button>
+  <button id="export" title="この Path と設定で録画ページへ（← rigo で戻れる）">Export →</button>
+ </div>
+ <div class="parts" id="parts"></div>
+ <div class="hist" id="hist"></div>
+
+<footer class="credits hint">rigo · glyphs: <a href="https://kanjivg.tagaini.net/">KanjiVG</a> (CC BY-SA 3.0) · readings: <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project">KANJIDIC2</a> (EDRDG, CC BY-SA 4.0)</footer>
+</main>
+<script src="rigo-core.js"></script>
+<script src="app.js"></script></body></html>
