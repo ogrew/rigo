@@ -34,6 +34,7 @@ Meaning is never consulted — only shape decides where the chain goes.
 | `share.js` | 共有 URL（`#p=…`）の読み書き。index ⇄ export の受け渡しもこれ |
 | `data/` | 画面が読むデータ。`meta.json` と字形 3 層（`t0` 常用 / `t1` 人名用 / `t2` その他） |
 | `kvg_all.json` | KanjiVG 6,984 字の筆画・部品木（`src/build_kvg_all.py` で生成）。`data/` の元 |
+| `og.png` | 共有カードの画像（1200×630）。Path `森 木>漆 氵>海 / 林 木>歴 厂>岸` の 4.15 秒目を export.html の描画で切り出したもの |
 | `favicon.svg`, `favicon-32.png`, `apple-touch-icon.png` | アイコン。`favicon/` の案から `node favicon/gen.js` で書き出す（`favicon/preview.html` で案と動きを見比べられる） |
 | `mono.woff2`, `mono-bold.woff2` | JetBrains Mono (OFL 1.1) |
 | `mp4-muxer.js`, `webm-muxer.js` | [mp4-muxer](https://github.com/Vanilagy/mp4-muxer), [webm-muxer](https://github.com/Vanilagy/webm-muxer) (MIT) |
