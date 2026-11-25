@@ -24,7 +24,7 @@ header b{color:var(--fg);font-weight:500}
 .lab-opts{display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap;padding-left:8px;border-left:1px solid var(--line)}
 #settings{display:block}
 .toggle{margin-left:auto}
-input.ch{width:2.6em;text-align:center;font-family:"Noto Serif JP",serif;font-size:14px}
+input.ch{width:3.4em;text-align:center;font-family:"Noto Serif JP",serif;font-size:14px}
 #path{width:min(60vw,360px);font-family:'Mono',ui-monospace,monospace}
 input[type=range]{width:100px;height:2px}
 input[type=color]{width:28px;height:22px;padding:0;border:1px solid var(--line);background:none}
@@ -45,8 +45,8 @@ svg{width:min(92vw,65vh);aspect-ratio:153/165;background:var(--paper);display:bl
 <header>
  <div class="bar primary">
   <span class="seg" id="mode"><button data-m="auto" class="on">Auto</button><button data-m="manual">Manual</button><button data-m="route">Route</button></span>
-  <label>Start <input id="start" class="ch" type="text" maxlength="1"></label>
-  <label id="goalw" style="display:none">Goal <input id="goal" class="ch" type="text" maxlength="1"></label>
+  <label>Start <input id="start" class="ch" type="text" maxlength="2" title="2 字入れると、Auto / Route で字ごとに並べて同じ拍で渡す"></label>
+  <label id="goalw" style="display:none">Goal <input id="goal" class="ch" type="text" maxlength="2"></label>
   <label id="viaw" style="display:none">Via <input id="via" type="number" min="0" max="12" value="0" style="width:44px" title="間に挟む字の数（0 = 最短）"></label>
   <button id="go">▶ Run</button>
   <span id="status" class="hint"></span>
@@ -63,9 +63,10 @@ svg{width:min(92vw,65vh);aspect-ratio:153/165;background:var(--paper);display:bl
   <label>Beat <input id="beat" type="range" min="0.2" max="1" step="0.05" value="0.5"><b id="beatv">0.50</b>s</label>
   <label>Easing <select id="easing"><option value="inout">ease in-out</option><option value="out">ease out (decelerate)</option><option value="in">ease in (accelerate)</option><option value="linear">linear</option><option value="snap">snap (fast start, slow settle)</option><option value="back" selected>overshoot</option><option value="anticipate">anticipate (pull back, then go)</option></select></label>
   <label>Distance <input id="gap" type="range" min="6" max="80" step="1" value="18"><b id="gapv">18</b></label>
-  <label>Scale <input id="zoom" type="range" min="0.25" max="1" step="0.05" value="1"><b id="zoomv">1.00</b></label>
+  <label>Scale <input id="zoom" type="range" min="0.25" max="2" step="0.05" value="1"><b id="zoomv">1.00</b></label>
   <label>Scope <select id="scope"><option value="joyo" selected>常用</option><option value="jinmei">常用＋人名用</option><option value="all">全部</option></select></label>
   <label><input id="keep" type="checkbox" checked> Keep shape</label>
+  <label title="2 字以上のときの並び。縦は上から下へ（Export は 9:16）">Direction <select id="dir"><option value="h" selected>横</option><option value="v">縦</option></select></label>
   <label id="loopw"><input id="loopv" type="checkbox"> Allow revisits</label>
   <label title="ほどけない字をまるごと渡す（平 → 評）／取り出した部品がそのまま字になる（奇 → 大）"><input id="whole" type="checkbox" checked> Whole char</label>
  </div>

@@ -114,7 +114,7 @@ function candidates(ch,ps,visited,loop){ return ps.map((p,i)=>{ const l=(compInd
 function parsePath(v){ const toks=(v||'').trim().split(/\s+/); const c=[...toks[0]||''][0]; if(!c||!has(c))return null; const sc=toks.slice(1).filter(t=>t.includes('>')).map(t=>{const [e,n]=t.split('>');return {e,next:[...n][0]};}); return {c,sc}; }
 function pathStr(start,steps){ return start+(steps.length?' '+steps.map(r=>r.e+'>'+r.next).join(' '):''); }
 // Path 文字列に出てくる字（読み込みが要るもの）
-function pathChars(v){ const toks=(v||'').trim().split(/\s+/); const o=[]; const c=[...toks[0]||''][0]; if(c)o.push(c); toks.slice(1).forEach(t=>{ const n=t.split('>')[1]; if(n)o.push([...n][0]); }); return o; }
+function pathChars(v){ if((v||'').includes('/'))return [].concat(...v.split('/').map(pathChars)); const toks=(v||'').trim().split(/\s+/); const o=[]; const c=[...toks[0]||''][0]; if(c)o.push(c); toks.slice(1).forEach(t=>{ const n=t.split('>')[1]; if(n)o.push([...n][0]); }); return o; }
 
 // ---------- 設定 ----------
 // cfg: {gap, keep, beat, ease, debris, labels:{on,name,code,pos,strokes,read,mean}}
@@ -133,13 +133,13 @@ function labelFor(p,L){ if(!L||!L.on||!p.e)return null; const inf=(D.info&&D.inf
 
 // ---------- 残骸 ----------
 // ctx.debris: [{polys, bb, x, y}]（現在位置）。押し出しは区間ごとに「始点→目標」を記録する
-function pushDebris(ctx,obstacles){ const zoom=ctx.cfg.zoom||1; const PD=4, sh=(b,x,y)=>[b[0]+x-PD,b[1]+y-PD,b[2]+x+PD,b[3]+y+PD]; const obs=obstacles.map(b=>b.slice());
+function pushDebris(ctx,obstacles){ const zoom=ctx.cfg.zoom||1; const PD=4, sh=(b,x,y)=>[b[0]+x-PD,b[1]+y-PD,b[2]+x+PD,b[3]+y+PD]; const obs=obstacles.concat(ctx.extra||[]).map(b=>b.slice()); // extra: 共有の場で、隣のレーンの字（このレーンの座標）
   const order=ctx.debris.slice().sort((a,b)=>{const ca=center(a.bb),cb=center(b.bb);return Math.hypot(ca[0]+a.x-VC[0],ca[1]+a.y-VC[1])-Math.hypot(cb[0]+b.x-VC[0],cb[1]+b.y-VC[1]);});
   const moves=[]; order.forEach(d=>{ let x=d.x,y=d.y; for(let it=0;it<10;it++){ const b=sh(d.bb,x,y); const o=obs.find(ob=>overlap(b,ob)); if(!o)break;
       const cb=center(b),co=center(o); let ux=cb[0]-co[0],uy=cb[1]-co[1]; let L=Math.hypot(ux,uy); if(L<1e-3){ux=cb[0]-VC[0];uy=cb[1]-VC[1];L=Math.hypot(ux,uy);} if(L<1e-3){ux=1;uy=0;L=1;} ux/=L;uy/=L;
       const dist=clearDist(b,o,ux,uy)+1; x+=ux*dist; y+=uy*dist; }
     moves.push({d,fx:d.x,fy:d.y,tx:x,ty:y}); obs.push(sh(d.bb,x,y)); d.x=x; d.y=y; });
-  { const hw=84.5/zoom, hh=90/zoom; ctx.debris=ctx.debris.filter(d=>{const b=d.bb; return b[2]+d.x>VC[0]-hw&&b[0]+d.x<VC[0]+hw&&b[3]+d.y>VC[1]-hh&&b[1]+d.y<VC[1]+hh;}); const cap=Math.min(300,Math.round(80/(zoom*zoom))); if(ctx.debris.length>cap)ctx.debris=ctx.debris.slice(-cap); }
+  { const hw=84.5/zoom, hh=90/zoom; const fl=ctx.fieldL||0, fr=ctx.fieldR||0, ft=ctx.fieldT||0, fb=ctx.fieldB||0; ctx.debris=ctx.debris.filter(d=>{const b=d.bb; return b[2]+d.x>VC[0]-hw-fl&&b[0]+d.x<VC[0]+hw+fr&&b[3]+d.y>VC[1]-hh-ft&&b[1]+d.y<VC[1]+hh+fb;}); const cap=Math.min(300,Math.round(80/(zoom*zoom))); if(ctx.debris.length>cap)ctx.debris=ctx.debris.slice(-cap); }
   return moves; }
 // 区間用のスナップショット：{polys, bb, fx,fy,tx,ty}
 function debrisSnap(ctx,moves){ const mv=new Map(moves.map(m=>[m.d,m])); return ctx.debris.map(d=>{const m=mv.get(d); return m?{polys:d.polys,bb:d.bb,fx:m.fx,fy:m.fy,tx:m.tx,ty:m.ty}:{polys:d.polys,bb:d.bb,fx:d.x,fy:d.y,tx:d.x,ty:d.y};}); }
@@ -188,7 +188,65 @@ function compile(start,steps,cfg,leadIn,leadOut){ cfg=Object.assign({},cfg,{whol
   return {segs,dur:ctx.t,visited:ctx.visited,start,steps}; }
 // 時刻 t の画面状態を S に書く（区間は t0 で探す）
 function frameAt(tl,t,S){ const segs=tl.segs; let s=segs[segs.length-1]; for(let i=0;i<segs.length;i++){ if(t<segs[i].t0+segs[i].dur){ s=segs[i]; break; } }
-  applySeg(s,t,S,tl.cfgEase); return s; }
+  applySeg(s,t,S,tl.ease||tl.cfgEase); return s; }
+// ---------- 複数レーン（字を横に並べて、同じ拍で渡す） ----------
+// lanes: [{start, steps}]。レーンごとに stepA/stepB で区間を作り、1 手ごとに一番遅いレーンに合わせて他は止めて待つ。
+// 返す tl.segs は全体を覆う区間ひとつ（音の時刻表だけを持つ）。画面は frameAtMulti で各レーンの S を書く。
+function glyphItems(ch,cfg){ const ps=parts(ch,cfg.gap,cfg.zoom); return ps?assembledItems(ps):(D.tree[ch]?strokes(tree(ch)).map(s=>({pts:s,op:1})):[]); }
+function holdSeg(ctx,dur,ch){ const items=glyphItems(ch,ctx.cfg); return seg(ctx,dur,'hold',(te,S)=>{ S.view=1; S.items=items; S.labels=[]; S.showBoxes=false; S.hl=-1; S.guideLine=null; }); }
+function compileMulti(lanes,cfg,leadIn,leadOut){ cfg=Object.assign({},cfg,{whole:true}); // compile と同じく、Path に書かれた経路は字そのものの受け渡しも通す
+  const L=lanes.map(l=>({ctx:newCtx(cfg,l.start),segs:[],ch:l.start,steps:l.steps||[],ok:true,done:0}));
+  // 共有の場：レーンは同じ場に間隔 FD（字の座標）で並ぶ。残骸は場の端まで流れ、隣のレーンの字にも押しのけられる。
+  // 画面上のレーンの位置は Scale によらないので、字の座標での間隔は FIELD / Scale（Scale を上げると字だけが大きくなる）
+  const shared=L.length>1 /* 2 字以上は常に同じ場 */, n=L.length, vert=!!cfg.vertical, FD=FIELD/(cfg.zoom||1); if(shared)L.forEach((x,i)=>{ x.ctx[vert?'fieldT':'fieldL']=i*FD; x.ctx[vert?'fieldB':'fieldR']=(n-1-i)*FD; }); // 縦書きは上から下へ
+  const boxesAt=(ch,exploded)=>{ const ps=partsOrWhole(ch,cfg.gap,cfg.zoom); return ps?ps.map(p=>exploded?[p.bb[0]+p.off[0],p.bb[1]+p.off[1],p.bb[2]+p.off[0],p.bb[3]+p.off[1]]:p.bb.slice()):[]; };
+  const others=(i,boxes)=>{ const o=[]; boxes.forEach((bs,j)=>{ if(j===i)return; const d=(j-i)*FD, dx=vert?0:d, dy=vert?d:0; bs.forEach(b=>o.push([b[0]+dx,b[1]+dy,b[2]+dx,b[3]+dy])); }); return o; };
+  if(leadIn>0)L.forEach(x=>x.segs.push(holdSeg(x.ctx,leadIn,x.ch)));
+  const K=Math.max(0,...L.map(x=>x.steps.length));
+  for(let k=0;k<K;k++){
+    const act=L.map(x=>x.ok&&k<x.steps.length); let bA=null, bB=null;
+    if(shared){ bA=L.map((x,j)=>boxesAt(x.ch,act[j])); bB=L.map((x,j)=>boxesAt(act[j]?x.steps[k].next:x.ch,false)); }
+    L.forEach((x,i)=>{ if(!act[i])return; const st=x.steps[k], t0=x.ctx.t; if(shared)x.ctx.extra=others(i,bA); const A=stepA(x.ctx,x.ch); const idx=A?A.data.ps.findIndex(p=>p.e===st.e&&p.alt):-1;
+      if(idx<0||!has(st.next)){ x.ctx.t=t0; x.ok=false; return; } x.segs.push(...A.segs); if(shared)x.ctx.extra=others(i,bB); const Bq=stepB(x.ctx,A.data,{idx,next:st.next}); x.ctx.extra=null; x.segs.push(...Bq.segs); x.ch=Bq.next; x.done++; });
+    const T=Math.max(...L.map(x=>x.ctx.t)); L.forEach(x=>{ if(x.ctx.t<T-1e-9)x.segs.push(holdSeg(x.ctx,T-x.ctx.t,x.ch)); }); }
+  L.forEach(x=>x.segs.push(endSeg(x.ctx,Math.max(0.001,leadOut||0),x.ch)));
+  const dur=Math.max(...L.map(x=>x.ctx.t));
+  const ev=[]; L.forEach(x=>soundEvents(x.segs).forEach(e=>ev.push(e))); ev.sort((a,b)=>a.t-b.t); const snd=[]; ev.forEach(e=>{ if(!snd.some(q=>q.kind===e.kind&&Math.abs(q.at-e.t)<0.005))snd.push({at:e.t,kind:e.kind}); }); // 同時の同じ音はひとつに
+  const master={t0:0,dur,phase:'',fn:()=>{},snd,deb:[],eased:false};
+  // 字（残骸を除く）の広がりを測る：中心からの距離の 98 パーセンタイル（部品が外から飛び込む一瞬は除く）。レーンの自動縮小に使う
+  const ex=[], ey=[], SS=[]; for(let t=0;t<dur;t+=1/15){ L.forEach((x,i)=>{ const S=SS[i]||(SS[i]={}); frameAt({segs:x.segs},t,S); const v=S.view||1; let mx=0,my=0; (S.items||[]).forEach(it=>it.pts.forEach(q=>{ const a=Math.abs(q[0]-VC[0])*v, b=Math.abs(q[1]-VC[1])*v; if(a>mx)mx=a; if(b>my)my=b; })); ex.push(mx); ey.push(my); }); }
+  const p98=a=>{ if(!a.length)return 0; a.sort((x,y)=>x-y); return a[Math.min(a.length-1,Math.floor(a.length*0.98))]; };
+  return {multi:true,vertical:vert,segs:[master],dur,ext:{x:p98(ex),y:p98(ey)},lanes:L.map((x,i)=>({segs:x.segs,start:lanes[i].start,steps:x.steps.slice(0,x.done),visited:x.ctx.visited,ok:x.ok})),visited:L.map(x=>x.ctx.visited)}; }
+function frameAtMulti(tl,t,SS,easeName){ tl.lanes.forEach((l,i)=>{ const S=SS[i]||(SS[i]={}); frameAt({segs:l.segs,ease:easeName||tl.ease},t,S); }); return SS; }
+const FIELD=150; // 隣のレーンとの間隔（Scale 1 のときの字の座標。画面上の間隔は Scale によらない）
+// レーンの配置：1 字のときの画面（vb）をレーンの数だけ並べた大きさの場に、レーンを間隔 FIELD で置く（境目なし）。
+//   aspect を与えると全体をその縦横比に収め、入りきらなければ全体を ls 倍に縮める。
+//   ext（compileMulti が測った字の広がり）を与えると、字が収まるよう中身をさらに fit 倍にする（0.7〜1）。
+//   Scale はレーンの位置を変えず、字の大きさだけに効く（drawLanes で掛ける）
+function laneLayout(n,vb,aspect,ext,vertical){ if(n<=1)return {vb,cx:[VC[0]],cy:[VC[1]],ls:1,fit:1};
+  // 並べる向き a：0 = 横（x 方向に並ぶ）、1 = 縦書き（y 方向に、上から下へ）
+  const a=vertical?1:0, size=vb[2+a], T=n*size, F=aspect?(a?vb[2]/aspect:vb[3]*aspect):T, ls=Math.min(1,F/T), f0=vb[a]-(F-n*size*ls)/2;
+  let fit=1; if(ext){ const hx=Math.min(VC[0]-vb[0],vb[0]+vb[2]-VC[0])-3, hy=Math.min(VC[1]-vb[1],vb[1]+vb[3]-VC[1])-9; fit=Math.max(0.7,Math.min(1,ext.x>0?hx/ext.x:1,ext.y>0?hy/ext.y:1)); }
+  const k=ls*fit, mid=f0+F/2, c=[]; for(let i=0;i<n;i++)c.push(mid+(i-(n-1)/2)*FIELD*k);
+  const bot=c.map((v,i)=>i<n-1?(v+c[i+1])/2:f0+F); // レーンの下端（縦書きの HUD の位置）：次のレーンとの中間
+  return {vb:a?[vb[0],f0,vb[2],F]:[f0,vb[1],F,vb[3]], cx:a?c.map(()=>VC[0]):c, cy:a?c:c.map(()=>VC[1]), ls,fit, vertical:!!a, bot}; }
+// Path の複数レーン：" / " で区切る（森 木>染 氵>海 / 林 木>板 厂>岸）
+function parseMulti(v){ const ls=(v||'').split('/').map(x=>x.trim()).filter(Boolean); if(!ls.length)return null; const o=ls.map(parsePath); return o.every(Boolean)?o:null; }
+// Auto 用：ランダムに渡り歩いた経路を前もって作る。選び方は画面の Auto と同じ（直前に運んだ部品は、他に候補があれば避ける）
+function randomWalk(start,maxSteps,o){ o=o||{}; const vis=(o.avoid||[]).concat([start]); const steps=[]; let ch=start, last=null;
+  for(let k=0;k<maxSteps;k++){ const ps=WHOLE?partsOrWhole(ch):parts(ch); if(!ps)break; const cands=candidates(ch,ps,vis,o.loop); if(!cands.length)break;
+    const pool=cands.filter(c=>c.p.e!==last), from=pool.length?pool:cands; const x=from[Math.floor(Math.random()*from.length)], next=x.list[Math.floor(Math.random()*x.list.length)];
+    steps.push({e:x.p.e,next}); vis.push(next); last=x.p.e; ch=next; }
+  return steps; }
+// 複数レーンの Auto：レーンごとに歩かせ、手数がなるべく長く揃う組を何度か試して選ぶ（長いレーンは短いほうに合わせて切る）。
+// 再訪なしのときは、レーンどうしでも同じ字を通らない
+function randomWalks(starts,maxSteps,o){ o=o||{}; const tries=o.tries||16; let best=null;
+  for(let t=0;t<tries;t++){ const used=[]; const lanes=starts.map((s,i)=>{ const avoid=o.loop?[]:used.concat(starts.filter((x,j)=>j!==i)); const st=randomWalk(s,maxSteps,{loop:o.loop,avoid}); if(!o.loop){ used.push(s); st.forEach(x=>used.push(x.next)); } return {start:s,steps:st}; });
+    const n=Math.min(...lanes.map(l=>l.steps.length)); if(!best||n>best.n)best={n,lanes}; if(n>=maxSteps)break; }
+  best.lanes.forEach(l=>{ l.steps=l.steps.slice(0,best.n); }); return best.lanes; }
+function findRoutes(A,B,via){ // 字ごとに経路を探し、手数を揃える（揃わなければ短いレーンは最後に待つ）
+  const a=[...A],b=[...B]; if(a.length!==b.length)return null; let ps=a.map((x,i)=>findPath(x,b[i],via||0)); if(ps.some(p=>!p))return {fail:a.map((x,i)=>ps[i]?null:x+'→'+b[i]).filter(Boolean)};
+  const L=Math.max(...ps.map(p=>p.length)); ps=ps.map((p,i)=>p.length===L?p:(findPath(a[i],b[i],L-1)||p)); return {lanes:a.map((x,i)=>({start:x,steps:ps[i]}))}; }
 function applySeg(s,t,S,easeName){ let te=s.dur>0?Math.max(0,Math.min(1,(t-s.t0)/s.dur)):1; if(s.eased)te=(EASE[easeName]||EASE.inout)(te);
   S.phase=s.phase; s.fn(te,S); if(s.visitedAt)S.visited=s.visitedAt;
   S.debris=(s.deb||[]).map(d=>({polys:d.polys,dx:d.fx+(d.tx-d.fx)*te,dy:d.fy+(d.ty-d.fy)*te})); }
@@ -209,13 +267,19 @@ function outlineD(pts,wfn){ const n=pts.length;const L=[],R=[];
     const w=wfn(i/(n-1),Math.atan2(dy,dx))/2;L.push([pts[i][0]-dy*w,pts[i][1]+dx*w]);R.push([pts[i][0]+dy*w,pts[i][1]-dx*w]);}
   const f=q=>q[0].toFixed(2)+','+q[1].toFixed(2); return 'M'+L.map(f).join('L')+'L'+R.reverse().map(f).join('L')+'Z'; }
 const MONO="'Mono',ui-monospace,Menlo,monospace";
-function draw(svg,S,V){ const vb=V.vb||[-22,-28,153,165]; svg.setAttribute('viewBox',vb.join(' ')); const X0=vb[0],Y0=vb[1],X1=vb[0]+vb[2],Y1=vb[1]+vb[3];
+function draw(svg,S,V){ drawLanes(svg,[S],V); }
+// SS: レーンごとの S。レーンは laneLayout の位置に、同じ場として並べる（1 レーンなら従来の draw と同じ絵）
+function drawLanes(svg,SS,V){ const LY=laneLayout(SS.length,V.vb||[-22,-28,153,165],V.aspect,V.ext,V.vertical); const vb=LY.vb; svg.setAttribute('viewBox',vb.join(' ')); const X0=vb[0],Y0=vb[1],X1=vb[0]+vb[2],Y1=vb[1]+vb[3];
   let bg=svg.querySelector('#bg'); if(!bg){bg=document.createElementNS(NS,'rect');bg.id='bg';bg.setAttribute('stroke','none');svg.appendChild(bg);} bg.setAttribute('x',X0);bg.setAttribute('y',Y0);bg.setAttribute('width',vb[2]);bg.setAttribute('height',vb[3]);bg.setAttribute('fill',V.paper);
   let g0=svg.querySelector('#art'); if(!g0){g0=document.createElementNS(NS,'g');g0.id='art';svg.appendChild(g0);} g0.innerHTML='';
-  const zoom=V.zoom||1; const g=document.createElementNS(NS,'g'); g.setAttribute('transform','translate('+VC[0]+','+VC[1]+') scale('+((S.view||1)*zoom)+') translate('+(-VC[0])+','+(-VC[1])+')'); g0.appendChild(g);
+  const zoom=V.zoom||1; let g=null;
   const st=V.style, SW=+V.sw, ink=V.ink, pap=V.paper, mx=t=>mix(ink,pap,t);
   svg.setAttribute('stroke',ink); svg.setAttribute('stroke-width',st==='hair'?Math.min(SW,0.6):SW); svg.setAttribute('fill','none');
   svg.setAttribute('stroke-linecap',st==='flat'?'butt':'round'); svg.setAttribute('stroke-linejoin',st==='flat'?'miter':'round');
+  function txt(x,y,str,size,op,anchor,bold,top){ const t=document.createElementNS(NS,'text'); t.setAttribute('x',x);t.setAttribute('y',y);t.setAttribute('font-size',size);t.setAttribute('font-family',MONO);t.setAttribute('fill',bold?mx(0.2):mx(0.35));if(bold)t.setAttribute('font-weight','700');t.setAttribute('stroke','none');t.setAttribute('opacity',op); if(anchor)t.setAttribute('text-anchor',anchor); t.textContent=str; (top?g0:g).appendChild(t); return t; }
+  const hudQ=[]; // レーンごとの HUD は定規の後に描く（1 レーンのとき従来と同じ重なり順）
+  SS.forEach((S,li)=>{ const cx=LY.cx[li], cy=LY.cy[li];
+  g=document.createElementNS(NS,'g'); g.setAttribute('transform','translate('+cx+','+cy+') scale('+((S.view||1)*zoom*LY.ls*LY.fit)+') translate('+(-VC[0])+','+(-VC[1])+')'); g0.appendChild(g);
   const dItems=[]; if(V.debris&&S.debris)S.debris.forEach(d=>d.polys.forEach(s=>dItems.push({pts:s.map(q=>[q[0]+d.dx,q[1]+d.dy]),op:1,gray:true,deb:true})));
   dItems.concat(S.items||[]).forEach(it=>{const p=document.createElementNS(NS,'path'); const col=it.deb?mx(0.78):it.gray?mx(0.7):ink;
     if(st==='brush'){p.setAttribute('d',outlineD(it.pts,(t,a)=>SW*(0.55+0.75*Math.sin(Math.PI*Math.min(1,t*1.6))*(1-t*0.55)+0.15)));p.setAttribute('fill',col);p.setAttribute('stroke','none');}
@@ -223,26 +287,31 @@ function draw(svg,S,V){ const vb=V.vb||[-22,-28,153,165]; svg.setAttribute('view
     else {p.setAttribute('d','M'+it.pts.map(q=>q[0].toFixed(2)+','+q[1].toFixed(2)).join('L')); if(it.gray)p.setAttribute('stroke',col);}
     p.setAttribute('opacity',it.op); g.appendChild(p);});
   const bx={}; (S.items||[]).forEach(it=>{ if(it.part===undefined)return; const b=bx[it.part]||(bx[it.part]={x0:1e9,y0:1e9,x1:-1e9,y1:-1e9,op:0}); it.pts.forEach(q=>{if(q[0]<b.x0)b.x0=q[0];if(q[1]<b.y0)b.y0=q[1];if(q[0]>b.x1)b.x1=q[0];if(q[1]>b.y1)b.y1=q[1];}); b.op=Math.max(b.op,it.boxop!==undefined?it.boxop:it.op); });
-  function txt(x,y,str,size,op,anchor,bold,top){ const t=document.createElementNS(NS,'text'); t.setAttribute('x',x);t.setAttribute('y',y);t.setAttribute('font-size',size);t.setAttribute('font-family',MONO);t.setAttribute('fill',bold?mx(0.2):mx(0.35));if(bold)t.setAttribute('font-weight','700');t.setAttribute('stroke','none');t.setAttribute('opacity',op); if(anchor)t.setAttribute('text-anchor',anchor); t.textContent=str; (top?g0:g).appendChild(t); return t; }
   const hl=S.hl===undefined?-1:S.hl;
   if(S.showBoxes){ Object.keys(bx).forEach(k=>{ const b=bx[k], on=(+k===hl); if(!V.boxes&&!on)return; const r=document.createElementNS(NS,'rect'); const pad=2.5; r.setAttribute('x',b.x0-pad);r.setAttribute('y',b.y0-pad);r.setAttribute('width',b.x1-b.x0+2*pad);r.setAttribute('height',b.y1-b.y0+2*pad); r.setAttribute('fill','none');r.setAttribute('stroke',on?ink:mx(0.45));r.setAttribute('stroke-width',on?0.6:0.35);if(!on)r.setAttribute('stroke-dasharray','1 1');r.setAttribute('stroke-linecap','butt');r.setAttribute('opacity',b.op); g.appendChild(r);
     if(V.hud) txt(b.x0-pad,b.y0-pad-0.8,'x:'+Math.round(b.x0)+' y:'+Math.round(b.y0)+' w:'+Math.round(b.x1-b.x0)+' h:'+Math.round(b.y1-b.y0),2.8,b.op*(on?1:0.8)); }); }
   if(S.pickable&&S.showBoxes){ S.pickable.set.forEach(i=>{ const b=bx[i]; if(!b)return; const r=document.createElementNS(NS,'rect'); const pad=2.5; r.setAttribute('x',b.x0-pad);r.setAttribute('y',b.y0-pad);r.setAttribute('width',b.x1-b.x0+2*pad);r.setAttribute('height',b.y1-b.y0+2*pad); r.setAttribute('fill','#000');r.setAttribute('fill-opacity','0');r.setAttribute('stroke','none');r.setAttribute('pointer-events','all');r.style.cursor='pointer';r.dataset.part=i; g.appendChild(r); }); }
   if(S.guideLine&&V.guide){ const q=S.guideLine; const l=document.createElementNS(NS,'path'); l.setAttribute('d','M'+q.x0+','+q.y0+'L'+q.x1+','+q.y1); l.setAttribute('stroke',mx(0.3));l.setAttribute('stroke-width',0.35);l.setAttribute('stroke-dasharray','1 1');l.setAttribute('stroke-linecap','butt');l.setAttribute('opacity',q.op); g.appendChild(l);
     const r=document.createElementNS(NS,'rect'); r.setAttribute('x',q.bb[0]-2.5);r.setAttribute('y',q.bb[1]-2.5);r.setAttribute('width',q.bb[2]-q.bb[0]+5);r.setAttribute('height',q.bb[3]-q.bb[1]+5);r.setAttribute('fill','none');r.setAttribute('stroke',mx(0.3));r.setAttribute('stroke-width',0.35);r.setAttribute('stroke-dasharray','1 1');r.setAttribute('stroke-linecap','butt');r.setAttribute('opacity',q.op); g.appendChild(r); }
-  if(V.ruler){ // 目盛りは字の座標（glyph units）。Scale で字が小さくなると、見える範囲が広がり目盛りの間隔を粗くする
-    const rc=mx(0.55); const L0=X0+4,R0=X1-4,T0=Y0+4,B0=Y1-0.5; const toS=(v,c)=>c+(v-c)*zoom, toA=(p,c)=>c+(p-c)/zoom;
-    const minor=[2,5,10,20,50].find(m=>m*zoom>=1.6)||50, mid=minor*5, major=[50,100,200,500,1000].find(m=>m>=minor*20)||1000; const len=v=>v%major===0?7.2:v%mid===0?3.2:0.8; let d='';
-    const ax0=toA(X0+6,VC[0]),ax1=toA(X1-7,VC[0]),ay0=toA(Y0+6,VC[1]),ay1=toA(Y1-7,VC[1]);
-    for(let v=Math.ceil(ax0/minor)*minor;v<=ax1;v+=minor){ const L=len(v), sx=toS(v,VC[0]); d+='M'+sx+','+T0+'v'+L+' M'+sx+','+B0+'v'+(-L)+' '; }
-    for(let v=Math.ceil(ay0/minor)*minor;v<=ay1;v+=minor){ const L=len(v), sy=toS(v,VC[1]); d+='M'+L0+','+sy+'h'+L+' M'+R0+','+sy+'h'+(-L)+' '; }
-    const l1=document.createElementNS(NS,'path'); l1.setAttribute('d',d); l1.setAttribute('stroke',rc); l1.setAttribute('stroke-width',0.25); l1.setAttribute('stroke-linecap','butt'); g0.appendChild(l1);
-    for(let v=Math.ceil(ay0/major)*major;v<=ay1;v+=major){ txt(L0+8,toS(v,VC[1])+0.8,String(v),2.2,0.9,'start',false,true).setAttribute('fill',rc); }
-    for(let v=Math.ceil(ax0/major)*major;v<=ax1;v+=major){ txt(toS(v,VC[0])+1.2,T0+5.5,String(v),2.2,0.9,'start',false,true).setAttribute('fill',rc); } }
-  if(V.hud){ const vis=S.visited||[]; const n=Math.max(0,vis.length-1); const last=vis.slice(-3); if(vis.length) txt((X0+X1)/2,Y1-6,String(n).padStart(4,'0')+'  '+last.join(' → '),4,0.9,'middle',true,true); if(S.phase) txt(X1-5,Y0+3,S.phase,3.2,0.9,'end',true,true); }
+  if(V.hud){ const vis=S.visited||[]; const n=Math.max(0,vis.length-1); const last=vis.slice(-3); if(vis.length) hudQ.push(()=>txt(SS.length>1?cx:(X0+X1)/2,LY.vertical?LY.bot[li]-6:Y1-6,String(n).padStart(4,'0')+'  '+last.join(' → '),4,0.9,'middle',true,true)); }
   const size=+V.lsize;
   (S.labels||[]).forEach(lb=>{ if(!lb.lines)return; const b=lb.part!==undefined?bx[lb.part]:null; const x=b?b.x0-2.5:lb.x, y=b?b.y1+2.5:lb.y;
-    lb.lines.forEach((ln,i)=>{const t=document.createElementNS(NS,'text'); t.setAttribute('x',x); t.setAttribute('y',y+size*1.3*(i+1)); t.setAttribute('font-size',size); t.setAttribute('font-family',MONO); t.setAttribute('fill',mx(0.35)); t.setAttribute('stroke','none'); t.setAttribute('opacity',lb.op); t.textContent=ln; g.appendChild(t);}); }); }
+    lb.lines.forEach((ln,i)=>{const t=document.createElementNS(NS,'text'); t.setAttribute('x',x); t.setAttribute('y',y+size*1.3*(i+1)); t.setAttribute('font-size',size); t.setAttribute('font-family',MONO); t.setAttribute('fill',mx(0.35)); t.setAttribute('stroke','none'); t.setAttribute('opacity',lb.op); t.textContent=ln; g.appendChild(t);}); }); });
+  if(V.ruler){ // 目盛りは字の座標（glyph units）。Scale で字が小さくなると、見える範囲が広がり目盛りの間隔を粗くする
+    // 複数レーンでは、レーンごとにそのタイルの四辺へ目盛りを打つ（どのレーンも 0〜109 の字の座標で読める）
+    const rc=mx(0.55); const k=zoom*LY.ls*LY.fit;
+    const minor=[2,5,10,20,50].find(m=>m*k>=1.6)||50, mid=minor*5, major=[50,100,200,500,1000].find(m=>m>=minor*20)||1000; const len=v=>v%major===0?7.2:v%mid===0?3.2:0.8; let d='';
+    // 目盛り：画面の四辺に、レーン 0 の字の座標で 1 組（複数レーンは同じ場なので、隣のレーンはその続きの座標で読める）
+    const spec=(cx,cy,x0,x1,y0,y1)=>({toSx:v=>cx+(v-VC[0])*k, ax0:VC[0]+(x0+6-cx)/k, ax1:VC[0]+(x1-7-cx)/k, toSy:v=>cy+(v-VC[1])*k, ay0:VC[1]+(y0+6-cy)/k, ay1:VC[1]+(y1-7-cy)/k, T0:y0+4, B0:y1-0.5, L0:x0+4, R0:x1-4});
+    const lanes=[spec(LY.cx[0],LY.cy[0],X0,X1,Y0,Y1)];
+    lanes.forEach(ln=>{
+      for(let v=Math.ceil(ln.ax0/minor)*minor;v<=ln.ax1;v+=minor){ const L=len(v), sx=ln.toSx(v); d+='M'+sx+','+ln.T0+'v'+L+' M'+sx+','+ln.B0+'v'+(-L)+' '; }
+      for(let v=Math.ceil(ln.ay0/minor)*minor;v<=ln.ay1;v+=minor){ const L=len(v), sy=ln.toSy(v); d+='M'+ln.L0+','+sy+'h'+L+' M'+ln.R0+','+sy+'h'+(-L)+' '; } });
+    const l1=document.createElementNS(NS,'path'); l1.setAttribute('d',d); l1.setAttribute('stroke',rc); l1.setAttribute('stroke-width',0.25); l1.setAttribute('stroke-linecap','butt'); g0.appendChild(l1);
+    lanes.forEach(ln=>{
+      for(let v=Math.ceil(ln.ay0/major)*major;v<=ln.ay1;v+=major){ txt(ln.L0+8,ln.toSy(v)+0.8,String(v),2.2,0.9,'start',false,true).setAttribute('fill',rc); }
+      for(let v=Math.ceil(ln.ax0/major)*major;v<=ln.ax1;v+=major){ txt(ln.toSx(v)+1.2,ln.T0+5.5,String(v),2.2,0.9,'start',false,true).setAttribute('fill',rc); } }); }
+  hudQ.forEach(f=>f()); if(V.hud&&SS[0]&&SS[0].phase) txt(X1-5,Y0+3,SS[0].phase,3.2,0.9,'end',true,true); }
 
 // ---------- 再生（実時間） ----------
 // player.play(segs, {onFrame(S,seg), onSound(kind), onDone, easeName}) … pause/resume/stop
@@ -256,5 +325,6 @@ function makePlayer(){ const P={paused:false,playing:false,_raf:0,_tok:0};
   return P; }
 
 window.RIGO={ NS,STROKES,VC,EASE, get D(){return D;}, set D(v){D=v;cache={};TIER=null;SYNTH={};}, tree,parts,wholeParts,partsOrWhole,setWhole,isLeaf,strokes,buildIndex,has,tierOf,load,ensure,ensureScope,ensureTier,synthSources,pathChars,scopeChars,inScope,get compIndex(){return compIndex;}, candidates,findPath,parsePath,pathStr,
-  newCtx,stepA,stepB,endSeg,compile,frameAt,applySeg,soundEvents,scheduleSound,draw,makePlayer,labelFor,mix };
+  newCtx,stepA,stepB,endSeg,compile,frameAt,applySeg,soundEvents,scheduleSound,draw,makePlayer,labelFor,mix,
+  compileMulti,frameAtMulti,drawLanes,laneLayout,parseMulti,findRoutes,randomWalk,randomWalks };
 })();
