@@ -2,9 +2,12 @@
 const $=id=>document.getElementById(id); const R=window.RIGO, SH=window.RIGO_SHARE; const player=R.makePlayer();
 let S={items:[],labels:[],showBoxes:false,hl:-1,phase:'',guideLine:null,view:1,debris:[],visited:[]};
 const VB=[-28,-31.5,165,165]; // 1:1
-function V(){ return {style:$('style').value, sw:+$('sw').value, ink:$('ink').value, paper:$('paper').value, boxes:$('boxes').checked, hud:$('hud').checked, ruler:$('ruler').checked, debris:$('debris').checked, guide:$('guide').checked, lsize:+$('l_size').value, zoom:+$('zoom').value, vb:VB}; }
-function cfg(){ return {gap:+$('gap').value, zoom:+$('zoom').value, scope:$('scope').value, keep:$('keep').checked, beat:+$('beat').value, debris:$('debris').checked, labels:{on:$('labels').checked,name:$('l_name').checked,code:$('l_code').checked,pos:$('l_pos').checked,strokes:$('l_strokes').checked,read:$('l_read').checked,mean:$('l_mean').checked}}; }
-function draw(){ R.draw($('stage'),S,V()); }
+let SS=null, LEXT=null, LVT=false; // 複数レーンのときのレーンごとの S と字の広がり（2 字以上は 16:9 で横に並べる）
+const ASPECT=16/9;
+function setLanes(n){ const st=$('stage'); if(n>1){ st.style.aspectRatio=LVT?'9/16':'16/9'; st.style.width=LVT?'min(92vw, calc(80vh * 9 / 16))':'min(92vw, calc(62vh * 16 / 9))'; } else { st.style.aspectRatio=''; st.style.width=''; } }
+function V(){ return {style:$('style').value, sw:+$('sw').value, ink:$('ink').value, paper:$('paper').value, boxes:$('boxes').checked, hud:$('hud').checked, ruler:$('ruler').checked, debris:$('debris').checked, guide:$('guide').checked, lsize:+$('l_size').value, zoom:+$('zoom').value, vb:VB, aspect:SS?(LVT?1/ASPECT:ASPECT):undefined, ext:SS?LEXT:null, vertical:SS?LVT:false}; }
+function cfg(){ return {gap:+$('gap').value, zoom:+$('zoom').value, scope:$('scope').value, keep:$('keep').checked, vertical:$('dir').value==='v', beat:+$('beat').value, debris:$('debris').checked, labels:{on:$('labels').checked,name:$('l_name').checked,code:$('l_code').checked,pos:$('l_pos').checked,strokes:$('l_strokes').checked,read:$('l_read').checked,mean:$('l_mean').checked}}; }
+function draw(){ if(SS)R.drawLanes($('stage'),SS,V()); else R.draw($('stage'),S,V()); }
 function setStatus(s){ $('status').textContent=s; }
 let AC=null; function snd(kind){ if(!$('sound').checked)return; try{ if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); R.scheduleSound(AC,AC.destination,kind,AC.currentTime,+$('vol').value);}catch(e){} }
 let downloads=null; (async()=>{try{if(window.claude&&claude.use){downloads=await claude.use('downloads');}}catch(e){downloads=null;}})();
@@ -20,15 +23,20 @@ function applyState(st){ if(!st)return; try{
 function refreshUI(){ $('beatv').textContent=(+$('beat').value).toFixed(2); $('gapv').textContent=$('gap').value; $('zoomv').textContent=(+$('zoom').value).toFixed(2); $('swv').textContent=$('sw').value; $('l_sizev').textContent=$('l_size').value; $('volv').textContent=(+$('vol').value).toFixed(2); $('labopts').style.display=$('labels').checked?'':'none'; $('soundopts').style.display=$('sound').checked?'':'none'; }
 
 // ---- タイムライン ----
-function compileTL(){ const p=R.parsePath($('path').value); if(!p){setStatus('Path が読めません');return null;} if(!p.sc.length){setStatus('Path に経路がありません（例：森 木>梅 毋>海）');return null;}
+function compileTL(){ const v=$('path').value;
+  if(v.includes('/')){ const m=R.parseMulti(v); if(!m||!m.some(x=>x.sc.length)){setStatus('Path が読めないか、経路がありません');return null;}
+    const tl=R.compileMulti(m.map(x=>({start:x.c,steps:x.sc})),cfg(),+$('leadin').value||0,+$('leadout').value||0); tl.ease=$('easing').value;
+    LEXT=tl.ext; LVT=tl.vertical; if(!SS||SS.length!==m.length)SS=m.map(()=>({})); setLanes(m.length); return tl; }
+  if(SS){ SS=null; LEXT=null; setLanes(1); }
+  const p=R.parsePath(v); if(!p){setStatus('Path が読めません');return null;} if(!p.sc.length){setStatus('Path に経路がありません（例：森 木>梅 毋>海）');return null;}
   const tl=R.compile(p.c,p.sc,cfg(),+$('leadin').value||0,+$('leadout').value||0); tl.ease=$('easing').value; return tl; }
 // Path に出てくる字の層を読んでおく（compile は同期なので先に）
 async function need(){ try{ await R.ensure(R.pathChars($('path').value),p=>setStatus('loading '+Math.round(p*100)+'%')); return true; }catch(e){ setStatus('字形データを読めませんでした'); return false; } }
-async function showFirst(){ if(!await need())return; const tl=compileTL(); if(!tl)return; R.frameAt(tl,0,S); S.phase=''; draw(); setStatus('ready  '+tl.dur.toFixed(2)+'s  ('+Math.ceil(tl.dur*30)+' frames @30fps)'); }
+async function showFirst(){ if(!await need())return; const tl=compileTL(); if(!tl)return; if(tl.multi){ R.frameAtMulti(tl,0,SS); SS.forEach(x=>x.phase=''); } else { R.frameAt(tl,0,S); S.phase=''; } draw(); setStatus('ready  '+tl.dur.toFixed(2)+'s  ('+Math.ceil(tl.dur*30)+' frames @30fps)'); }
 
 // ---- Preview（実時間） ----
 $('preview').onclick=async()=>{ if(!await need())return; const tl=compileTL(); if(!tl)return; S.debris=[]; setStatus('preview  '+tl.dur.toFixed(2)+'s'); $('preview').disabled=true;
-  await player.play(tl.segs,{onFrame:(s,t)=>{R.applySeg(s,t,S,tl.ease);draw();},onSound:snd}); $('preview').disabled=false; setStatus('preview done'); };
+  await player.play(tl.segs,{onFrame:(s,t)=>{ if(tl.multi)R.frameAtMulti(tl,t,SS,tl.ease); else R.applySeg(s,t,S,tl.ease); draw();},onSound:snd}); $('preview').disabled=false; setStatus('preview done'); };
 $('stopbtn').onclick=()=>{ player.stop(); $('preview').disabled=false; setStatus('stopped'); };
 
 // ---- Render（仮想時計で1コマずつ） ----
@@ -50,7 +58,7 @@ async function pickCodecs(W,H,fps,withAudio){ if(!('VideoEncoder' in window))ret
 async function renderAudio(tl,vol){ const sr=48000, n=Math.ceil(tl.dur*sr)+sr/10; const ac=new OfflineAudioContext(1,n,sr); R.soundEvents(tl.segs).forEach(e=>R.scheduleSound(ac,ac.destination,e.kind,e.t,vol)); return await ac.startRendering(); }
 let rendering=false;
 $('render').onclick=async()=>{ if(rendering)return; if(!await need())return; const tl=compileTL(); if(!tl)return; player.stop();
-  const W=+$('size').value, H=W, fps=30, withAudio=$('sound').checked; const total=Math.ceil(tl.dur*fps);
+  const S0=+$('size').value, W=tl.multi&&!tl.vertical?Math.round(S0*ASPECT/2)*2:S0, H=tl.multi&&tl.vertical?Math.round(S0*ASPECT/2)*2:S0, /* 2 字以上：横は 16:9、縦は 9:16 */ fps=30, withAudio=$('sound').checked; const total=Math.ceil(tl.dur*fps);
   const codecs=await pickCodecs(W,H,fps,withAudio); if(!codecs){ setStatus('このブラウザでは動画を書き出せません（WebCodecs 非対応）。Chrome / Edge をお使いください'); return; }
   rendering=true; $('render').disabled=true; $('preview').disabled=true; $('prog').style.display=''; $('result').innerHTML='';
   const css=await loadFontCss(); const svg=$('stage'); const cv=$('cv'); cv.width=W; cv.height=H; const g2=cv.getContext('2d');
@@ -68,13 +76,13 @@ $('render').onclick=async()=>{ if(rendering)return; if(!await need())return; con
       await aenc.flush(); aenc.close(); }
     // 画：1コマずつ
     const t0=performance.now();
-    for(let f=0;f<total;f++){ if(failed)throw failed; const t=f/fps; R.frameAt(tl,t,S); draw();
+    for(let f=0;f<total;f++){ if(failed)throw failed; const t=f/fps; if(tl.multi)R.frameAtMulti(tl,t,SS); else R.frameAt(tl,t,S); draw();
       const img=await svgToImage(svg,W,H,css); g2.fillStyle=$('paper').value; g2.fillRect(0,0,W,H); g2.drawImage(img,0,0,W,H);
       const vf=new VideoFrame(cv,{timestamp:Math.round(f*1e6/fps),duration:Math.round(1e6/fps)}); venc.encode(vf,{keyFrame:f%(fps*2)===0}); vf.close();
       while(venc.encodeQueueSize>6) await new Promise(r=>setTimeout(r,5));
       if(f%5===0){ const pc=Math.round((f+1)/total*100); $('bar').style.width=pc+'%'; const el=(performance.now()-t0)/1000, eta=el/(f+1)*(total-f-1); setStatus('rendering '+(f+1)+'/'+total+'  '+pc+'%  残り約 '+Math.ceil(eta)+'s'); } }
     await venc.flush(); venc.close(); muxer.finalize();
-    const blob=new Blob([target.buffer],{type:isMp4?'video/mp4':'video/webm'}); const p=R.parsePath($('path').value); const name='rigo_'+p.c+'-'+tl.visited[tl.visited.length-1]+'_'+Date.now()+(isMp4?'.mp4':'.webm');
+    const blob=new Blob([target.buffer],{type:isMp4?'video/mp4':'video/webm'}); const ends=tl.multi?[tl.lanes.map(l=>l.start).join(''),tl.lanes.map(l=>l.visited[l.visited.length-1]).join('')]:[tl.start,tl.visited[tl.visited.length-1]]; const name='rigo_'+ends[0]+'-'+ends[1]+'_'+Date.now()+(isMp4?'.mp4':'.webm');
     const url=URL.createObjectURL(blob); $('result').innerHTML=''; const vid=document.createElement('video'); vid.controls=true; vid.src=url; vid.style.width='min(60vw,420px)'; $('result').appendChild(vid);
     const info=document.createElement('div'); info.className='hint'; info.textContent=name+'  ('+(blob.size/1048576).toFixed(1)+' MB, '+codecs.container.toUpperCase()+' '+codecs.v+(withAudio?' + '+codecs.a:'')+')'; $('result').appendChild(info);
     let saved=false; if(downloads){ try{ await downloads.save({filename:name,data:blob}); saved=true; }catch(e){} }
@@ -85,7 +93,7 @@ $('render').onclick=async()=>{ if(rendering)return; if(!await need())return; con
 
 $('back').addEventListener('click',e=>{ e.preventDefault(); location.href=SH.url('index.html',$('path').value); });
 // ---- UI ----
-['style','sw','ink','paper','boxes','hud','ruler','debris','guide','labels','l_name','l_code','l_pos','l_strokes','l_read','l_mean','l_size','gap','zoom','scope','keep','beat','easing','leadin','leadout'].forEach(k=>{ $(k).oninput=()=>{refreshUI(); if(!player.playing&&!rendering)showFirst();}; $(k).onchange=()=>{refreshUI(); if(!player.playing&&!rendering)showFirst();}; });
+['style','sw','ink','paper','dir','boxes','hud','ruler','debris','guide','labels','l_name','l_code','l_pos','l_strokes','l_read','l_mean','l_size','gap','zoom','scope','keep','beat','easing','leadin','leadout'].forEach(k=>{ $(k).oninput=()=>{refreshUI(); if(!player.playing&&!rendering)showFirst();}; $(k).onchange=()=>{refreshUI(); if(!player.playing&&!rendering)showFirst();}; });
 $('path').onchange=()=>{ if(!player.playing&&!rendering)showFirst(); };
 $('vol').oninput=refreshUI; $('sound').onchange=()=>{ refreshUI(); if($('sound').checked){ try{ if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)(); AC.resume(); snd('tick'); }catch(e){} } };
 document.addEventListener('mousedown',e=>{ if(e.target.closest&&e.target.closest('button'))e.preventDefault(); },true);
