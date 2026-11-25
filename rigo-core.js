@@ -159,7 +159,7 @@ function stepA(ctx,ch){ const cfg=ctx.cfg, B=cfg.beat, gap=cfg.gap; const ps=cfg
   for(let i=0;i<n;i++){ segs.push(seg(ctx,step,'scan',(te,S)=>{ S.view=fit; S.items=exploded; S.labels=lab.map(l=>Object.assign({},l,{op:1})); S.showBoxes=true; S.hl=i; S.guideLine=null; },{snd:[{at:0,kind:'tick'}]})); }
   return {segs,data:{ch,ps,off,to,lab,fit,exploded,keep}}; }
 function stepB(ctx,data,pick){ const cfg=ctx.cfg, B=cfg.beat, gap=cfg.gap; const {ch,ps,to,lab,fit,exploded,keep}=data; const segs=[];
-  const P=ps[pick.idx], next=pick.next; const nps=partsOrWhole(next,gap,cfg.zoom); const ni=nps.findIndex(q=>q.e===P.e&&q.alt); const Q=nps[ni];
+  const P=ps[pick.idx], next=pick.next; const nps=next===P.e?wholeParts(next):partsOrWhole(next,gap,cfg.zoom); const ni=nps.findIndex(q=>q.e===P.e&&q.alt); const Q=nps[ni];
   const pb=to[pick.idx].flat(); const cx=pb.reduce((a,q)=>a+q[0],0)/pb.length, cy=pb.reduce((a,q)=>a+q[1],0)/pb.length; const gl={x0:cx,y0:cy,x1:(Q.bb[0]+Q.bb[2])/2,y1:(Q.bb[1]+Q.bb[3])/2,bb:Q.bb};
   const emph=(te,S)=>{ S.view=fit; S.items=[]; ps.forEach((p,i)=>to[i].forEach(s=>S.items.push({pts:s,op:i===pick.idx?1:1-0.6*te,gray:i!==pick.idx,part:i}))); S.labels=lab.map((l,i)=>Object.assign({},l,{op:i===pick.idx?1:1-0.6*te})); S.showBoxes=true; S.hl=pick.idx; S.guideLine=Object.assign({op:te},gl); };
   segs.push(seg(ctx,B*0.5,'select',emph,{eased:true,snd:[{at:0,kind:'relay'}]}));
