@@ -51,7 +51,7 @@ $('go').onclick=()=>{ const a=[...$('start').value.trim()][0]; if(!a||!R.D.tree[
   run(a,null); };
 $('replay').onclick=()=>{ const p=R.parsePath($('path').value); if(!p){setStatus('Path が読めません');return;} if(!p.sc.length){setStatus('Path に経路がありません');return;} $('start').value=p.c; run(p.c,p.sc); };
 $('copy').onclick=async()=>{ const txt=$('path').value; try{await navigator.clipboard.writeText(txt);setStatus('copied');}catch(e){setStatus(txt);} };
-$('export').onclick=()=>{ const st={path:$('path').value,cfg:cfg(),V:V(),ease:$('easing').value,sound:$('sound').checked,vol:+$('vol').value}; delete st.V.vb; token++; player.stop(); location.href='export.html#'+encodeURIComponent(JSON.stringify(st)); };
+$('export').onclick=()=>{ const st={path:$('path').value,cfg:cfg(),V:V(),ease:$('easing').value,sound:$('sound').checked,vol:+$('vol').value,nav:{mode,goal:$('goal').value,via:$('via').value}}; delete st.V.vb; token++; player.stop(); location.href='export.html#'+encodeURIComponent(JSON.stringify(st)); };
 (()=>{ const svg=$('stage'); const hit=e=>{const t=e.target.closest&&e.target.closest('[data-part]'); return t?+t.dataset.part:-1;};
   svg.addEventListener('mousemove',e=>{ if(!S.pickable)return; const i=hit(e); if(i!==S.hl){S.hl=i;draw();} });
   svg.addEventListener('mouseleave',()=>{ if(!S.pickable)return; if(S.hl!==-1){S.hl=-1;draw();} });
@@ -83,5 +83,5 @@ async function loadData(onProgress){ const r=await fetch('kvg_all.json'); const 
 loadData(p=>setStatus('loading '+Math.round(p*100)+'%')).then(d=>{ R.D=d; setStatus('indexing…');
   let st=null; try{ if(location.hash.length>1) st=JSON.parse(decodeURIComponent(location.hash.slice(1))); }catch(e){}
   R.buildIndex($('scope').value); setStatus('ready');
-  if(applyState(st)){ R.buildIndex($('scope').value); history.replaceState(null,'',location.pathname); const p=R.parsePath($('path').value); if(p){ $('start').value=p.c; setMode('auto'); if(innerWidth<=700)$('settoggle').click(); const ps=R.parts(p.c,+$('gap').value,+$('zoom').value); S.visited=[p.c]; S.items=[]; if(ps)ps.forEach(q=>q.s.forEach(s=>S.items.push({pts:s,op:1}))); draw(); histRender(); setStatus('export から戻りました — Replay で再生'); return; } }
+  if(applyState(st)){ R.buildIndex($('scope').value); history.replaceState(null,'',location.pathname); const p=R.parsePath($('path').value); if(p){ $('start').value=p.c; const nv=st.nav||{}; if(nv.goal!=null)$('goal').value=nv.goal; if(nv.via!=null)$('via').value=nv.via; setMode(['auto','manual','route'].includes(nv.mode)?nv.mode:'auto'); if(innerWidth<=700)$('settoggle').click(); const ps=R.parts(p.c,+$('gap').value,+$('zoom').value); S.visited=[p.c]; S.items=[]; if(ps)ps.forEach(q=>q.s.forEach(s=>S.items.push({pts:s,op:1}))); draw(); histRender(); setStatus('export から戻りました — Replay で再生'); return; } }
   const cands=R.scopeChars().filter(c=>{const ps=R.parts(c);return ps&&ps.some(p=>p.alt&&(R.compIndex[p.e]||[]).length>1);}); const st0=cands[Math.floor(Math.random()*cands.length)]; $("start").value=st0; setMode("auto"); if(innerWidth<=700)$("settoggle").click(); run(st0); });

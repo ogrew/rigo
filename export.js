@@ -81,7 +81,8 @@ $('render').onclick=async()=>{ if(rendering)return; const tl=compileTL(); if(!tl
   }catch(e){ console.error(e); setStatus('render failed: '+(e&&e.message||e)); }
   rendering=false; $('render').disabled=false; $('preview').disabled=false; };
 
-function stateObj(){ const st={path:$('path').value,cfg:cfg(),V:V(),ease:$('easing').value,sound:$('sound').checked,vol:+$('vol').value}; delete st.V.vb; return st; }
+let nav=null; // 通常ページの Mode / Goal / Via を戻るときまで預かる
+function stateObj(){ const st={path:$('path').value,cfg:cfg(),V:V(),ease:$('easing').value,sound:$('sound').checked,vol:+$('vol').value,nav}; delete st.V.vb; return st; }
 $('back').addEventListener('click',e=>{ e.preventDefault(); location.href='index.html#'+encodeURIComponent(JSON.stringify(stateObj())); });
 // ---- UI ----
 ['style','sw','ink','paper','boxes','hud','ruler','debris','guide','labels','l_name','l_code','l_pos','l_strokes','l_read','l_mean','l_size','gap','zoom','scope','keep','beat','easing','leadin','leadout'].forEach(k=>{ $(k).oninput=()=>{refreshUI(); if(!player.playing&&!rendering)showFirst();}; $(k).onchange=()=>{refreshUI(); if(!player.playing&&!rendering)showFirst();}; });
@@ -93,4 +94,4 @@ async function loadData(onProgress){ const r=await fetch('kvg_all.json'); const 
   const buf=new Uint8Array(got); let o=0; chunks.forEach(c=>{buf.set(c,o);o+=c.length;}); return JSON.parse(new TextDecoder().decode(buf)); }
 loadData(p=>setStatus('loading '+Math.round(p*100)+'%')).then(d=>{ R.D=d; R.buildIndex();
   let st=null; try{ if(location.hash.length>1) st=JSON.parse(decodeURIComponent(location.hash.slice(1))); }catch(e){}
-  applyState(st); R.buildIndex($('scope').value); if(!$('path').value)$('path').value='森 木>梅 毋>海'; showFirst(); });
+  applyState(st); if(st&&st.nav)nav=st.nav; R.buildIndex($('scope').value); if(!$('path').value)$('path').value='森 木>梅 毋>海'; showFirst(); });
