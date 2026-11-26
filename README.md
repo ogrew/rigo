@@ -64,3 +64,7 @@ node src/split_data.js
 
 このリポジトリのコード（`*.js`, `*.html`, `src/`）は MIT License。
 `kvg_all.json` は KanjiVG と KANJIDIC2 の派生物なので CC BY-SA（3.0 / 4.0）に従う。
+
+## 関連
+
+- [naiji](https://ogrew.github.io/naiji/) — 無い字を組み立てる装置
