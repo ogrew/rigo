@@ -3,7 +3,7 @@ KanjiVG の全ての基本字形（variant 接尾辞なし）を木にする。�
   tree[ch] = {e, bb, own:[stroke...], ty:[type...], kids:[node...], pos, orig, p, ap}
     ap: 文脈内の画 i に対応する、素の字形（tree[e]）の画の番号（own→kids の順で数えたもの）。最適割当で求める。
   order: 読み情報のある字を 学年 → 画数 の順に並べたもの（常用 → 人名用 → その他）
-  grade[ch], info[ch] = {on, kun, m, n}, op[ch] = IDS の最上位演算子
+  grade[ch], info[ch] = {on, kun, m, n}
 """
 import json, re, sys, unicodedata
 from pathlib import Path
@@ -131,21 +131,6 @@ def main():
             grade[ch] = v["grade"]
     order = [ch for ch in trees if ch in K]
     order.sort(key=lambda c: (grade.get(c, 99), K[c].get("strokes") or 99, ord(c)))
-    # op: IDS 最上位演算子
-    op = {}
-    ids = ROOT / "data/cjkvi-ids/ids.txt"
-    if ids.exists():
-        for line in open(ids, encoding="utf-8"):
-            if line.startswith("#"):
-                continue
-            f = line.rstrip("\n").split("\t")
-            if len(f) < 3:
-                continue
-            ch = f[1]
-            if ch in trees and ch not in op:
-                s = f[2]
-                if s and s[0] in "⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻":
-                    op[ch] = s[0]
     # index: 字 → 含まれる部品名
     index = {}
     for ch, t in trees.items():
@@ -159,7 +144,7 @@ def main():
 
         walk(t)
         index[ch] = sorted(names)
-    out = {"order": order, "grade": grade, "index": index, "tree": trees, "op": op, "info": info}
+    out = {"order": order, "grade": grade, "index": index, "tree": trees, "info": info}
     dst = ROOT / "out/drift/kvg_all.json"
     json.dump(out, open(dst, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print("wrote", dst, dst.stat().st_size // 1024, "KB", file=sys.stderr)
