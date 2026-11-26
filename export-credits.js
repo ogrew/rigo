@@ -1,4 +1,4 @@
-// Shared SVG credit footer. The original artwork stays above a separate margin.
+// One-line credit link centered in the existing bottom ruler margin.
 // Original project code: MIT License. Source material keeps its own licenses.
 (function () {
   'use strict';
@@ -8,17 +8,13 @@
   const font = "'Mono',ui-monospace,Menlo,monospace";
   let fontLicense;
 
-  function columns(project) {
-    return [
-      [
-        'KanjiVG (c) 2009-2011 Ulrich Apel | adapted | CC BY-SA 3.0',
-        'kanjivg.tagaini.net | creativecommons.org/licenses/by-sa/3.0/'
-      ],
-      [
-        'KANJIDIC2 (c) James William Breen / EDRDG | CC BY-SA 4.0',
-        'Other sources & terms: ogrew.github.io/' + project + '/credits.html'
-      ]
-    ];
+  function rulerMargin(svg, width, height) {
+    const tile = svg.querySelector('svg[data-ruler-inset]');
+    if (tile) {
+      const vb = tile.getAttribute('viewBox').trim().split(/[\s,]+/).map(Number);
+      return Number(tile.getAttribute('width')) / vb[2] * Number(tile.getAttribute('data-ruler-inset'));
+    }
+    return Number(svg.getAttribute('data-ruler-inset')) || 4;
   }
 
   function color(paper) {
@@ -38,35 +34,30 @@
     if (box.length !== 4 || !box.every(Number.isFinite) || box[2] <= 0 || box[3] <= 0) throw new Error('Invalid artwork viewBox');
     svg.querySelectorAll('[' + marker + ']').forEach(n => n.remove());
     const [x, y, width, height] = box;
-    const text = columns(project), size = Math.min(width, height) * 0.0105;
-    const footer = size * (2 * 1.3 + 0.9);
-    const newHeight = height + footer, newWidth = width * newHeight / height;
-    const newX = x - (newWidth - width) / 2;
-    const decorated = [newX, y, newWidth, newHeight].join(' ');
+    const margin = rulerMargin(svg, width, height);
+    const size = Math.min(Math.min(width, height) * 0.0105, margin * 0.65);
+    const newWidth = width, newHeight = height, newX = x, newY = y;
+    const decorated = [x, y, width, height].join(' ');
     svg.setAttribute(baseBox, viewBox);
     svg.setAttribute('viewBox', decorated);
     const bg = document.createElementNS(NS, 'rect');
     bg.setAttribute(marker, 'background');
-    for (const [key, value] of Object.entries({ x: newX, y, width: newWidth, height: newHeight, fill: paper, stroke: 'none', 'pointer-events': 'none' })) bg.setAttribute(key, value);
+    for (const [key, value] of Object.entries({ x: newX, y: newY, width: newWidth, height: newHeight, fill: paper, stroke: 'none', 'pointer-events': 'none' })) bg.setAttribute(key, value);
     svg.insertBefore(bg, svg.firstChild);
     const group = document.createElementNS(NS, 'g');
-    group.setAttribute(marker, 'footer');
+    group.setAttribute(marker, 'single');
     group.setAttribute('data-decorated-viewbox', decorated);
     group.setAttribute('fill', color(paper));
     group.setAttribute('stroke', 'none');
     group.setAttribute('pointer-events', 'none');
-    text.forEach((column, col) => {
-      column.forEach((line, row) => {
-        const t = document.createElementNS(NS, 'text');
-        t.setAttribute('x', x + width * (col === 0 ? 0.035 : 0.965));
-        t.setAttribute('y', y + height + size * (1.5 + row * 1.3));
-        t.setAttribute('font-family', font);
-        t.setAttribute('font-size', size);
-        t.setAttribute('text-anchor', col === 0 ? 'start' : 'end');
-        t.textContent = line;
-        group.appendChild(t);
-      });
-    });
+    const text = document.createElementNS(NS, 'text');
+    text.setAttribute('x', x + width / 2);
+    text.setAttribute('y', y + height - margin / 2 + size * 0.3);
+    text.setAttribute('font-family', font);
+    text.setAttribute('font-size', size);
+    text.setAttribute('text-anchor', 'middle');
+    text.textContent = 'credits: ogrew.github.io/' + project + '/credits.html';
+    group.appendChild(text);
     svg.appendChild(group);
   }
 

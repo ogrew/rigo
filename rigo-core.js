@@ -269,7 +269,7 @@ function outlineD(pts,wfn){ const n=pts.length;const L=[],R=[];
 const MONO="'Mono',ui-monospace,Menlo,monospace";
 function draw(svg,S,V){ drawLanes(svg,[S],V); }
 // SS: レーンごとの S。レーンは laneLayout の位置に、同じ場として並べる（1 レーンなら従来の draw と同じ絵）
-function drawLanes(svg,SS,V){ const LY=laneLayout(SS.length,V.vb||[-22,-28,153,165],V.aspect,V.ext,V.vertical); const vb=LY.vb; svg.setAttribute('viewBox',vb.join(' ')); const X0=vb[0],Y0=vb[1],X1=vb[0]+vb[2],Y1=vb[1]+vb[3];
+function drawLanes(svg,SS,V){ svg.setAttribute('data-ruler-inset','4'); const LY=laneLayout(SS.length,V.vb||[-22,-28,153,165],V.aspect,V.ext,V.vertical); const vb=LY.vb; svg.setAttribute('viewBox',vb.join(' ')); const X0=vb[0],Y0=vb[1],X1=vb[0]+vb[2],Y1=vb[1]+vb[3];
   let bg=svg.querySelector('#bg'); if(!bg){bg=document.createElementNS(NS,'rect');bg.id='bg';bg.setAttribute('stroke','none');svg.appendChild(bg);} bg.setAttribute('x',X0);bg.setAttribute('y',Y0);bg.setAttribute('width',vb[2]);bg.setAttribute('height',vb[3]);bg.setAttribute('fill',V.paper);
   let g0=svg.querySelector('#art'); if(!g0){g0=document.createElementNS(NS,'g');g0.id='art';svg.appendChild(g0);} g0.innerHTML='';
   const zoom=V.zoom||1; let g=null;
@@ -302,12 +302,12 @@ function drawLanes(svg,SS,V){ const LY=laneLayout(SS.length,V.vb||[-22,-28,153,1
     const rc=mx(0.55); const k=zoom*LY.ls*LY.fit;
     const minor=[2,5,10,20,50].find(m=>m*k>=1.6)||50, mid=minor*5, major=[50,100,200,500,1000].find(m=>m>=minor*20)||1000; const len=v=>v%major===0?7.2:v%mid===0?3.2:0.8; let d='';
     // 目盛り：画面の四辺に、レーン 0 の字の座標で 1 組（複数レーンは同じ場なので、隣のレーンはその続きの座標で読める）
-    const spec=(cx,cy,x0,x1,y0,y1)=>({toSx:v=>cx+(v-VC[0])*k, ax0:VC[0]+(x0+6-cx)/k, ax1:VC[0]+(x1-7-cx)/k, toSy:v=>cy+(v-VC[1])*k, ay0:VC[1]+(y0+6-cy)/k, ay1:VC[1]+(y1-7-cy)/k, T0:y0+4, B0:y1-0.5, L0:x0+4, R0:x1-4});
+    const spec=(cx,cy,x0,x1,y0,y1)=>({toSx:v=>cx+(v-VC[0])*k, ax0:VC[0]+(x0+6-cx)/k, ax1:VC[0]+(x1-7-cx)/k, toSy:v=>cy+(v-VC[1])*k, ay0:VC[1]+(y0+6-cy)/k, ay1:VC[1]+(y1-7-cy)/k, T0:y0+4, B0:y1-4, L0:x0+4, R0:x1-4});
     const lanes=[spec(LY.cx[0],LY.cy[0],X0,X1,Y0,Y1)];
     lanes.forEach(ln=>{
       for(let v=Math.ceil(ln.ax0/minor)*minor;v<=ln.ax1;v+=minor){ const L=len(v), sx=ln.toSx(v); d+='M'+sx+','+ln.T0+'v'+L+' M'+sx+','+ln.B0+'v'+(-L)+' '; }
       for(let v=Math.ceil(ln.ay0/minor)*minor;v<=ln.ay1;v+=minor){ const L=len(v), sy=ln.toSy(v); d+='M'+ln.L0+','+sy+'h'+L+' M'+ln.R0+','+sy+'h'+(-L)+' '; } });
-    const l1=document.createElementNS(NS,'path'); l1.setAttribute('d',d); l1.setAttribute('stroke',rc); l1.setAttribute('stroke-width',0.25); l1.setAttribute('stroke-linecap','butt'); g0.appendChild(l1);
+    const l1=document.createElementNS(NS,'path'); l1.setAttribute('d',d); l1.setAttribute('data-ruler-frame',''); l1.setAttribute('stroke',rc); l1.setAttribute('stroke-width',0.25); l1.setAttribute('stroke-linecap','butt'); g0.appendChild(l1);
     lanes.forEach(ln=>{
       for(let v=Math.ceil(ln.ay0/major)*major;v<=ln.ay1;v+=major){ txt(ln.L0+8,ln.toSy(v)+0.8,String(v),2.2,0.9,'start',false,true).setAttribute('fill',rc); }
       for(let v=Math.ceil(ln.ax0/major)*major;v<=ln.ax1;v+=major){ txt(ln.toSx(v)+1.2,ln.T0+5.5,String(v),2.2,0.9,'start',false,true).setAttribute('fill',rc); } }); }

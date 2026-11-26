@@ -67,7 +67,7 @@ node src/split_data.js
 
 [出典・第三者ライセンス](THIRD_PARTY_NOTICES.md)に、対象ファイルと JSON 内の範囲、著作権表示、加工内容、元データを記載しています。原文は `licenses/` に同梱しています。
 
-動画の全フレームに出典とライセンスを下端に2列・2行で小さく自動表示します。画面内の字形にも同じ表示が入ります。
+動画の全フレームに出典とライセンスを下部中央に `credits: ogrew.github.io/rigo/credits.html` の1行を小さく自動表示します。画面内の字形にも同じ表示が入ります。
 
 画像・動画を公開するときの表示例は [credits.txt](credits.txt)、画面から読める案内は [出典・ライセンス](https://ogrew.github.io/rigo/credits.html)を参照してください。
 
