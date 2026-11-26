@@ -62,8 +62,11 @@ node src/split_data.js
 
 ## ライセンス
 
-このリポジトリのコード（`*.js`, `*.html`, `src/`）は MIT License。
-`kvg_all.json` は KanjiVG と KANJIDIC2 の派生物なので CC BY-SA（3.0 / 4.0）に従う。
+自作コードは MIT License。外部ライブラリ・フォント・データには、それぞれの配布条件が適用されます。
+
+[出典・第三者ライセンス](THIRD_PARTY_NOTICES.md)に、対象ファイルと JSON 内の範囲、著作権表示、加工内容、元データを記載しています。原文は `licenses/` に同梱しています。
+
+画像・動画を公開するときの表示例は [credits.txt](credits.txt)、画面から読める案内は [出典・ライセンス](https://ogrew.github.io/rigo/credits.html)を参照してください。
 
 ## 関連
 

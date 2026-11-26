@@ -1,0 +1,67 @@
+{
+  "review_date": "2026-11-26",
+  "files": {
+    "CC-BY-SA-3.0.txt": {
+      "url": "https://creativecommons.org/licenses/by-sa/3.0/legalcode.txt",
+      "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f",
+      "bytes": 22240
+    },
+    "CC-BY-SA-4.0.txt": {
+      "url": "https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt",
+      "sha256": "28a9529c7d0bb4dc51f4bf5c116a3d16ef247a052f7591466768ddf563fd1cf5",
+      "bytes": 20138
+    },
+    "GPL-2.0.txt": {
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/GPL-2.0-only.txt",
+      "sha256": "aaf135472f81c5b4a0dca9367e5bb5e9750032b5bebe5442b36e4c0a47430df3",
+      "bytes": 17337
+    },
+    "JetBrains-Mono-OFL.txt": {
+      "url": "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/19371302b95d218af43299bce79ddbddd0bc364d/OFL.txt",
+      "sha256": "a76abf002c49097d146e86740a3105a5d00450b1592e820a1109a8c5680cd697",
+      "bytes": 4399
+    },
+    "mp4-muxer-MIT.txt": {
+      "url": "https://raw.githubusercontent.com/Vanilagy/mp4-muxer/0ab3652250f12e97dde4927b4ddcb2c2f2891197/LICENSE",
+      "sha256": "75c54aae7ef6ad652f684f9dd3b71e4dcef86ccebd88cf441ceed7f5eec037c5",
+      "bytes": 1065
+    },
+    "webm-muxer-MIT.txt": {
+      "url": "https://raw.githubusercontent.com/Vanilagy/webm-muxer/403788211f11f977eeb8add7a2de6e3ca608dad7/LICENSE",
+      "sha256": "1619f937fa43f768d38d2bfb35d228258e0dffe1f71c4202b338df20e68ff680",
+      "bytes": 1065
+    },
+    "kanji-data-MIT.txt": {
+      "url": "https://raw.githubusercontent.com/davidluzgouveia/kanji-data/00fd7079c3890f430759536f91aa5e854ec0ca4f/LICENSE",
+      "sha256": "4c4fe92a5adf9df114ca9f04e50329d4565c3ce511660e934cb01eb110e2ca6e",
+      "bytes": 1070
+    },
+    "EDRDG-LICENCE.txt": {
+      "url": "https://www.edrdg.org/edrdg/licence.html",
+      "sha256": "8580317bc0c0f5fed809d4bbc0f4be0e78f933bcaf3b4ca56767388bce2d1a4e",
+      "bytes": 9337,
+      "transcription": true
+    },
+    "KANJIDIC-Documentation.txt": {
+      "url": "https://www.edrdg.org/wiki/KANJIDIC_Project.html",
+      "sha256": "71559799a26b4fa1aaaa8c259f4392cabac0d74b26f9493b7456435ba46ed90b",
+      "bytes": 35507,
+      "transcription": true
+    },
+    "CJKVI-IDS-README.md": {
+      "url": "https://raw.githubusercontent.com/cjkvi/cjkvi-ids/86b4d16159f0079437870408f0ca186e529015db/README.md",
+      "sha256": "810382e8b554a6adca612e915191cd031b9bb02121c12aa3387131af57ea46de",
+      "bytes": 3644
+    },
+    "CHISE-IDS-README.md": {
+      "url": "https://raw.githubusercontent.com/chise/ids/master/README.md",
+      "sha256": "9508802794d54ab25a8768fdf1504525eefb105272aaee5fa0ecbe8e3a62719c",
+      "bytes": 6791
+    },
+    "ids.txt": {
+      "url": "https://raw.githubusercontent.com/cjkvi/cjkvi-ids/86b4d16159f0079437870408f0ca186e529015db/ids.txt",
+      "sha256": "bfc70a8c09f9f5616ebf0543bd6681e67314e9f7ae2307e5ae8c6f15bdc5c6a6",
+      "bytes": 2161631
+    }
+  }
+}

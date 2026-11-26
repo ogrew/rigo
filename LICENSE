@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ---
-Third-party:
-- kvg_all.json: derived from KanjiVG (c) Ulrich Apel, CC BY-SA 3.0, and KANJIDIC2 (c) EDRDG, CC BY-SA 4.0
-- mono.woff2 / mono-bold.woff2: JetBrains Mono, SIL Open Font License 1.1
-- mp4-muxer.js / webm-muxer.js: (c) Vanilagy, MIT License
+Scope: the MIT License above applies to original project code.
+Third-party libraries, fonts and data retain their own licenses.
+See THIRD_PARTY_NOTICES.md and licenses/ for copyright notices,
+license texts, data provenance and the applicable file/field scope.

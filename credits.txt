@@ -1,0 +1,29 @@
+rigo — source credits for exported artwork
+
+Glyph artwork adapted using rigo from KanjiVG.
+Copyright (C) 2009/2010/2011 Ulrich Apel.
+KanjiVG: https://kanjivg.tagaini.net/
+Glyphs are modified from the original stroke data.
+KanjiVG-derived glyph artwork: CC BY-SA 3.0 Unported
+https://creativecommons.org/licenses/by-sa/3.0/
+
+When readings or meanings are included:
+KANJIDIC2 data, copyright James William Breen and EDRDG.
+Filtered and converted through David Gouveia's kanji-data.
+CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/
+https://www.edrdg.org/wiki/index.php/KANJIDIC_Project
+
+When IDS data is reproduced:
+Copyright (c) 2014-2017 CJKVI Database. Based on CHISE IDS Database.
+CJKVI-IDS / CHISE data: GPLv2. Include the GPL text and modification notices.
+https://github.com/cjkvi/cjkvi-ids
+https://www.chise.org/ids/
+
+When font files are embedded or redistributed:
+Copyright 2020 The JetBrains Mono Project Authors
+https://github.com/JetBrains/JetBrainsMono
+SIL Open Font License 1.1. Include licenses/JetBrains-Mono-OFL.txt.
+
+Project and notices: https://ogrew.github.io/rigo/credits.html
+Use the sections that apply to the material in your work.
+This template does not assign a blanket license to unrelated contributions.
