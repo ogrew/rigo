@@ -10,20 +10,20 @@
 <p>rigo は、以下の公開データ・フォント・ライブラリを使っています。自作コードは MIT License、第三者の素材は各配布元の条件に従います。</p>
 <div class="table"><table><thead><tr><th>使っているもの</th><th>著作者・出典</th><th>ライセンス原文</th></tr></thead><tbody><tr><td>字形・部品</td><td>KanjiVG · Copyright (C) 2009/2010/2011 Ulrich Apel</td><td><a href="licenses/CC-BY-SA-3.0.txt">CC BY-SA 3.0</a></td></tr>
 <tr><td>読み・意味・学年</td><td>James William Breen / EDRDG · kanji-data: David Gouveia</td><td><a href="licenses/CC-BY-SA-4.0.txt">CC BY-SA 4.0</a> / <a href="licenses/kanji-data-MIT.txt">kanji-data の MIT</a></td></tr>
-<tr><td>IDS 構造情報</td><td>Copyright (c) 2014-2017 CJKVI Database · Based on CHISE IDS Database</td><td><a href="licenses/GPL-2.0.txt">GPLv2</a></td></tr>
+<tr><td>旧版の IDS 出典資料</td><td>Copyright (c) 2014-2017 CJKVI Database · Based on CHISE IDS Database</td><td><a href="licenses/GPL-2.0.txt">GPLv2</a></td></tr>
 <tr><td>JetBrains Mono</td><td>Copyright 2020 The JetBrains Mono Project Authors</td><td><a href="licenses/JetBrains-Mono-OFL.txt">SIL OFL 1.1</a></td></tr>
 <tr><td>MP4 / WebM ライブラリ</td><td>Copyright (c) 2023 / 2022 Vanilagy</td><td><a href="licenses/mp4-muxer-MIT.txt">MP4 の MIT</a> / <a href="licenses/webm-muxer-MIT.txt">WebM の MIT</a></td></tr></tbody></table></div>
 <h2>データの出典と加工</h2>
 <p><a href="https://kanjivg.tagaini.net/">KanjiVG</a> の筆画を点列に変え、部品の形や組み合わせに使っています。読み・意味は <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project">KANJIDIC2</a> を <a href="https://github.com/davidluzgouveia/kanji-data">kanji-data</a> 経由で取得し、項目を選んで JSON に変換したものです。</p>
-<p>構造情報には <a href="https://github.com/cjkvi/cjkvi-ids">CJKVI-IDS</a> の CHISE 由来データが含まれます。著作権表示を保った<a href="third-party/cjkvi-ids/ids.txt">入力データ</a>と、<a href="third-party/cjkvi-ids/README.md">配布元の説明</a>・<a href="third-party/chise/README.md">CHISE の説明・免責</a>を同梱しています。</p>
+<p>以前の配布データにあった未使用の IDS 構造表は 2026-11-26 に削除しました。現在の画面では使っていません。旧版の出典資料として、<a href="https://github.com/cjkvi/cjkvi-ids">CJKVI-IDS</a> の<a href="third-party/cjkvi-ids/ids.txt">入力データ</a>、<a href="third-party/cjkvi-ids/README.md">配布元の説明</a>、<a href="third-party/chise/README.md">CHISE の説明・免責</a>を保持しています。</p>
 <p>対象のファイル・データ項目、加工方法、確認した版は <a href="THIRD_PARTY_NOTICES.md">第三者ライセンスの詳細</a>に記載しています。KANJIDIC2 は <a href="licenses/EDRDG-LICENCE.txt">EDRDG の利用条件</a>と<a href="licenses/KANJIDIC-Documentation.txt">データの説明</a>も参照してください。</p>
 <h2>作品を公開・配布するとき</h2>
 <ul>
 <li>KanjiVG の字形を使った作品には、KanjiVG・Ulrich Apel・CC BY-SA 3.0 の表示とリンク、加工した旨を添えてください。派生字形の共有には、CC BY-SA 3.0 または同ライセンスが認める条件が適用されます。</li>
-<li>読み・意味を掲載するときは、KANJIDIC2・EDRDG・CC BY-SA 4.0 を表示してください。IDS データ自体を再配布するときは、CJKVI-IDS / CHISE の表示と GPL の条件も確認してください。</li>
+<li>読み・意味を掲載するときは、KANJIDIC2・EDRDG・CC BY-SA 4.0 を表示してください。</li>
 <li>クレジットは作品の説明欄、展示キャプション、同梱文書など、作品を受け取る人が確認できる場所に置いてください。</li>
 </ul>
-<p><a href="credits.txt" download>公開用クレジット例を保存する</a>。作品に含まれる素材に合う行を使ってください。出力ファイルにはクレジットを自動で埋め込んでいません。</p>
+<p><a href="credits.txt" download>公開用クレジット例を保存する</a>。作品に含まれる素材に合う行を使ってください。出力にはクレジットを下端に2列・2行で小さく自動表示します。動画では全フレームに表示します。SNS のトリミングなどで表示が切れる場合は、投稿の説明欄にも同じ情報を添えてください。</p>
 <p class="note">フォントファイルを含む SVG などを配布するときは、<a href="licenses/JetBrains-Mono-OFL.txt">フォントの著作権表示と OFL 原文</a>も添えてください。画像・動画全体に適用される条件は、含まれる素材と加工の内容によります。</p>
 <h2>コード・再配布</h2>
 <p>自作コードの条件は <a href="LICENSE">MIT License</a>、第三者の素材は上記の原文を参照してください。リポジトリを複製・再配布するときは、<a href="THIRD_PARTY_NOTICES.md">著作権表示・出典</a>とライセンス原文を保持してください。</p>

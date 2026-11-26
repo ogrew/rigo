@@ -7,7 +7,7 @@ const ASPECT=16/9;
 function setLanes(n){ const st=$('stage'); if(n>1){ st.style.aspectRatio=LVT?'9/16':'16/9'; st.style.width=LVT?'min(92vw, calc(80vh * 9 / 16))':'min(92vw, calc(62vh * 16 / 9))'; } else { st.style.aspectRatio=''; st.style.width=''; } }
 function V(){ return {style:$('style').value, sw:+$('sw').value, ink:$('ink').value, paper:$('paper').value, boxes:$('boxes').checked, hud:$('hud').checked, ruler:$('ruler').checked, debris:$('debris').checked, guide:$('guide').checked, lsize:+$('l_size').value, zoom:+$('zoom').value, vb:VB, aspect:SS?(LVT?1/ASPECT:ASPECT):undefined, ext:SS?LEXT:null, vertical:SS?LVT:false}; }
 function cfg(){ return {gap:+$('gap').value, zoom:+$('zoom').value, scope:$('scope').value, keep:$('keep').checked, vertical:$('dir').value==='v', beat:+$('beat').value, debris:$('debris').checked, labels:{on:$('labels').checked,name:$('l_name').checked,code:$('l_code').checked,pos:$('l_pos').checked,strokes:$('l_strokes').checked,read:$('l_read').checked,mean:$('l_mean').checked}}; }
-function draw(){ if(SS)R.drawLanes($('stage'),SS,V()); else R.draw($('stage'),S,V()); }
+function draw(){ if(SS)R.drawLanes($('stage'),SS,V()); else R.draw($('stage'),S,V()); ExportCredits.decorate($('stage'),{project:'rigo',paper:$('paper').value}); }
 function setStatus(s){ $('status').textContent=s; }
 let AC=null; function snd(kind){ if(!$('sound').checked)return; try{ if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); R.scheduleSound(AC,AC.destination,kind,AC.currentTime,+$('vol').value);}catch(e){} }
 let downloads=null; (async()=>{try{if(window.claude&&claude.use){downloads=await claude.use('downloads');}}catch(e){downloads=null;}})();

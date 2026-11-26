@@ -36,6 +36,7 @@ Meaning is never consulted — only shape decides where the chain goes.
 | `kvg_all.json` | KanjiVG 6,984 字の筆画・部品木（`src/build_kvg_all.py` で生成）。`data/` の元 |
 | `og.png` | 共有カードの画像（1200×630）。Path `森 木>漆 氵>海 / 林 木>歴 厂>岸` の 4.15 秒目を export.html の描画で切り出したもの |
 | `favicon.svg`, `favicon-32.png`, `apple-touch-icon.png` | アイコン。`favicon/` の案から `node favicon/gen.js` で書き出す（`favicon/preview.html` で案と動きを見比べられる） |
+| `export-credits.js` | 出力内の出典・ライセンス表示 |
 | `mono.woff2`, `mono-bold.woff2` | JetBrains Mono (OFL 1.1) |
 | `mp4-muxer.js`, `webm-muxer.js` | [mp4-muxer](https://github.com/Vanilagy/mp4-muxer), [webm-muxer](https://github.com/Vanilagy/webm-muxer) (MIT) |
 
@@ -65,6 +66,8 @@ node src/split_data.js
 自作コードは MIT License。外部ライブラリ・フォント・データには、それぞれの配布条件が適用されます。
 
 [出典・第三者ライセンス](THIRD_PARTY_NOTICES.md)に、対象ファイルと JSON 内の範囲、著作権表示、加工内容、元データを記載しています。原文は `licenses/` に同梱しています。
+
+動画の全フレームに出典とライセンスを下端に2列・2行で小さく自動表示します。画面内の字形にも同じ表示が入ります。
 
 画像・動画を公開するときの表示例は [credits.txt](credits.txt)、画面から読める案内は [出典・ライセンス](https://ogrew.github.io/rigo/credits.html)を参照してください。
 

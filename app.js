@@ -6,7 +6,7 @@ const VB1=[-22,-28,153,165];
 function setLanes(n){ const vb=R.laneLayout(n,VB1,null,null,LVT).vb; const st=$('stage'); st.style.aspectRatio=vb[2]+'/'+vb[3]; st.style.width=n>1?'min(92vw, calc('+(LVT?80:65)+'vh * '+(vb[2]/vb[3]).toFixed(3)+'))':''; }
 function V(){ return {style:$('style').value, sw:+$('sw').value, ink:$('ink').value, paper:$('paper').value, boxes:$('boxes').checked, hud:$('hud').checked, ruler:$('ruler').checked, debris:$('debris').checked, guide:$('guide').checked, lsize:+$('l_size').value, zoom:+$('zoom').value, vb:VB1, ext:SS?LEXT:null, vertical:SS?LVT:false}; } // vertical は再生中のタイムラインに合わせる（途中で切り替えても絵と動きがずれない）
 function cfg(){ return {gap:+$('gap').value, zoom:+$('zoom').value, scope:$('scope').value, keep:$('keep').checked, vertical:$('dir').value==='v', whole:$('whole').checked, beat:+$('beat').value, debris:$('debris').checked, labels:{on:$('labels').checked,name:$('l_name').checked,code:$('l_code').checked,pos:$('l_pos').checked,strokes:$('l_strokes').checked,read:$('l_read').checked,mean:$('l_mean').checked}}; }
-function draw(){ if(SS)R.drawLanes($('stage'),SS,V()); else R.draw($('stage'),S,V()); }
+function draw(){ if(SS)R.drawLanes($('stage'),SS,V()); else R.draw($('stage'),S,V()); ExportCredits.decorate($('stage'),{project:'rigo',paper:$('paper').value}); }
 let AC=null; function snd(kind){ if(!$('sound').checked)return; try{ if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); R.scheduleSound(AC,AC.destination,kind,AC.currentTime,+$('vol').value);}catch(e){} }
 let AUTO_LIMIT=32; let autoStopped=false; // Auto はこの字数で止める
 let mode='auto', settingsOpen=true, running=false, token=0, recording=[], ctx=null, lastPart=null; // lastPart: 直前に運んできた部品名
